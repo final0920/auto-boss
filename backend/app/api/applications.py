@@ -1,0 +1,115 @@
+"""applications — 投递看板 + SENDING 待确认队列 + 人工确认归位（AC8）。"""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlmodel import Session, select
+
+from app.db import get_db
+from app.models import Application, ApplicationStatus
+from app.security.auth import require_auth
+
+router = APIRouter(prefix="/applications", tags=["applications"])
+
+
+def _app_dict(a: Application) -> dict:
+    return {
+        "id": a.id,
+        "job_id": a.job_id,
+        "account_id": a.account_id,
+        "device_id": a.device_id,
+        "status": a.status.value,
+        "greeting": a.greeting,
+        "taken_over": a.taken_over,
+        "fail_reason": a.fail_reason,
+        "sent_at": a.sent_at.isoformat() if a.sent_at else None,
+        "last_poll_at": a.last_poll_at.isoformat() if a.last_poll_at else None,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+        "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+    }
+
+
+@router.get("", dependencies=[Depends(require_auth)])
+async def list_applications(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    stmt = select(Application)
+    if status_filter:
+        try:
+            st = ApplicationStatus(status_filter.upper())
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid status filter: {status_filter}",
+            )
+        stmt = stmt.where(Application.status == st)
+    apps = db.exec(stmt.offset(skip).limit(limit)).all()
+    return [_app_dict(a) for a in apps]
+
+
+@router.get("/sending", dependencies=[Depends(require_auth)])
+async def list_sending(db: Session = Depends(get_db)) -> list[dict]:
+    """SENDING 待人工确认队列（AC8 崩溃恢复）。"""
+    apps = db.exec(
+        select(Application).where(Application.status == ApplicationStatus.SENDING)
+    ).all()
+    return [_app_dict(a) for a in apps]
+
+
+@router.get("/{app_id}", dependencies=[Depends(require_auth)])
+async def get_application(app_id: int, db: Session = Depends(get_db)) -> dict:
+    a = db.get(Application, app_id)
+    if a is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    return _app_dict(a)
+
+
+@router.post("/{app_id}/confirm", dependencies=[Depends(require_auth)])
+async def confirm_sending(
+    app_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+) -> dict:
+    """人工确认 SENDING 记录归位（sent=True→SENT，sent=False→FAILED）。AC8。"""
+    a = db.get(Application, app_id)
+    if a is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if a.status != ApplicationStatus.SENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Application is not in SENDING state (current: {a.status.value})",
+        )
+    sent = bool(body.get("sent", False))
+    a.status = ApplicationStatus.SENT if sent else ApplicationStatus.FAILED
+    a.fail_reason = "" if sent else str(body.get("reason", "manual_confirm_failed"))
+    if sent:
+        a.sent_at = datetime.utcnow()
+    a.updated_at = datetime.utcnow()
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+    return _app_dict(a)
+
+
+@router.post("/{app_id}/takeover", dependencies=[Depends(require_auth)])
+async def takeover(app_id: int, db: Session = Depends(get_db)) -> dict:
+    """标记人工接管（inbox_watcher 发现 HR 回复后前端一键接管）。"""
+    a = db.get(Application, app_id)
+    if a is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    a.taken_over = True
+    a.updated_at = datetime.utcnow()
+    db.add(a)
+    db.commit()
+    db.refresh(a)
+
+    # 切换到 MANUAL 模式方便人工操控
+    from app.automation.device_mode import DeviceMode, device_mode_manager
+    await device_mode_manager.set_mode(DeviceMode.MANUAL, reason=f"takeover app_id={app_id}")
+
+    return _app_dict(a)
