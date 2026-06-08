@@ -19,3 +19,4 @@ build/
 .ruff_cache/
 *.egg-info/
 .DS_Store
+*.tsbuildinfo
