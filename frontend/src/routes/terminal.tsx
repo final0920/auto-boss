@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useI18n } from '../lib/i18n'
 import { useDevice } from '../lib/device-context'
 import { getToken } from '../api'
+import { Button, Card, CardHeader, CardTitle, CardContent } from '../components/ui'
 
 function TerminalPanel({ deviceId }: { deviceId: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -24,7 +25,7 @@ function TerminalPanel({ deviceId }: { deviceId: string }) {
       term = new Terminal({
         cursorBlink: true,
         fontSize: 13,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontFamily: 'SFMono-Regular, Menlo, Monaco, "Courier New", monospace',
         theme: { background: '#0d1117', foreground: '#c9d1d9' },
       })
       fitAddon = new FitAddon()
@@ -63,7 +64,10 @@ function TerminalPanel({ deviceId }: { deviceId: string }) {
   }, [deviceId])
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[400px]" />
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[400px]"
+    />
   )
 }
 
@@ -83,25 +87,37 @@ function TerminalPage() {
   return (
     <div className="p-6 space-y-4 h-full flex flex-col">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t.terminal.title}</h1>
+        <h1 className="text-2xl font-serif font-semibold text-foreground">{t.terminal.title}</h1>
         {!isManual && (
-          <button
+          <Button
             onClick={() => setDeviceMode(activeDevice.id, 'MANUAL')}
-            className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90"
+            size="sm"
           >
             {t.terminal.switchManual}
-          </button>
+          </Button>
         )}
       </div>
 
       {!isManual ? (
-        <div className="flex-1 flex items-center justify-center rounded-lg bg-black/90 text-yellow-400 text-sm">
-          {t.terminal.manualOnly}
-        </div>
+        <Card className="flex-1 flex items-center justify-center min-h-[300px]">
+          <CardContent className="text-yellow-600 text-sm pt-6">
+            {t.terminal.manualOnly}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="flex-1 rounded-lg overflow-hidden border border-border bg-black">
-          <TerminalPanel deviceId={activeDevice.id} />
-        </div>
+        <Card className="flex-1 overflow-hidden p-0">
+          <CardHeader className="pb-0 px-4 pt-3">
+            <CardTitle className="text-sm font-mono text-muted-foreground">
+              {activeDevice.serial}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 h-full">
+            {/* xterm 容器：rounded-xl 玻璃边框 */}
+            <div className="rounded-xl border border-border/60 overflow-hidden mx-4 mb-4" style={{ backdropFilter: 'blur(2px)' }}>
+              <TerminalPanel deviceId={activeDevice.id} />
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

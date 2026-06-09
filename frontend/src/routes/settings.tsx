@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useI18n, type Locale } from '../lib/i18n'
+import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui'
 
 type BackendOverride = 'auto' | 'uia' | 'vision'
 
@@ -39,113 +40,114 @@ function SettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-lg">
-      <h1 className="text-xl font-semibold">{t.settings.title}</h1>
+    <div className="p-6 space-y-4 max-w-lg">
+      <h1 className="text-2xl font-serif font-semibold text-foreground">{t.settings.title}</h1>
 
-      {/* Model config — read-only display, key is in .env */}
-      <section className="border border-border rounded-lg p-4 space-y-3 bg-card">
-        <h2 className="text-sm font-semibold">{t.settings.modelConfig}</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Model</label>
-            <input
-              value={cfg.modelName} readOnly
-              className="w-full rounded border border-border px-2 py-1 text-sm bg-muted cursor-not-allowed"
-            />
+      {/* 模型配置 — 只读展示，Key 走 .env */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.settings.modelConfig}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Model</label>
+              <Input value={cfg.modelName} readOnly className="cursor-not-allowed opacity-70" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Base URL</label>
+              <Input value={cfg.modelBaseUrl} readOnly className="cursor-not-allowed opacity-70" />
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Base URL</label>
-            <input
-              value={cfg.modelBaseUrl} readOnly
-              className="w-full rounded border border-border px-2 py-1 text-sm bg-muted cursor-not-allowed"
-            />
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
-          {t.settings.apiKeyNote}
-        </p>
-      </section>
+          {/* API Key 提示：Key 走 .env，后端覆盖，前端不存储 */}
+          <p className="text-xs text-muted-foreground bg-muted/60 border border-border/60 rounded-xl px-3 py-2">
+            {t.settings.apiKeyNote}
+          </p>
+        </CardContent>
+      </Card>
 
-      {/* Backend override */}
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.settings.backendOverride}</label>
-        <div className="flex gap-2">
-          {(['auto', 'uia', 'vision'] as BackendOverride[]).map(opt => (
-            <button
-              key={opt}
-              onClick={() => update('backendOverride', opt)}
-              className={`px-3 py-1.5 text-sm rounded border ${
-                cfg.backendOverride === opt
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border hover:bg-muted'
-              }`}
-            >
-              {opt === 'auto' ? '自动' : opt === 'uia' ? '控件树' : '视觉'}
-            </button>
-          ))}
-        </div>
-        {cfg.backendOverride !== 'auto' && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox" id="lock-backend"
-              checked={cfg.backendLocked}
-              onChange={e => update('backendLocked', e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="lock-backend" className="text-sm">
+      {/* 后端覆盖 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.settings.backendOverride}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            {(['auto', 'uia', 'vision'] as BackendOverride[]).map(opt => (
+              <Button
+                key={opt}
+                variant={cfg.backendOverride === opt ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => update('backendOverride', opt)}
+              >
+                {opt === 'auto' ? '自动' : opt === 'uia' ? '控件树' : '视觉'}
+              </Button>
+            ))}
+          </div>
+          {cfg.backendOverride !== 'auto' && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="lock-backend"
+                checked={cfg.backendLocked}
+                onChange={e => update('backendLocked', e.target.checked)}
+                className="rounded accent-primary"
+              />
               锁定（禁止自动切换）
             </label>
+          )}
+          <p className="text-xs text-muted-foreground">{t.settings.backendOverrideNote}</p>
+        </CardContent>
+      </Card>
+
+      {/* 语言 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.settings.language}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            {(['zh', 'en'] as Locale[]).map(lang => (
+              <Button
+                key={lang}
+                variant={cfg.language === lang ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => update('language', lang)}
+              >
+                {lang === 'zh' ? '中文' : 'English'}
+              </Button>
+            ))}
           </div>
-        )}
-        <p className="text-xs text-muted-foreground">{t.settings.backendOverrideNote}</p>
-      </section>
+        </CardContent>
+      </Card>
 
-      {/* Language */}
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.settings.language}</label>
-        <div className="flex gap-2">
-          {(['zh', 'en'] as Locale[]).map(lang => (
-            <button
-              key={lang}
-              onClick={() => update('language', lang)}
-              className={`px-3 py-1.5 text-sm rounded border ${
-                cfg.language === lang
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border hover:bg-muted'
-              }`}
-            >
-              {lang === 'zh' ? '中文' : 'English'}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* 主题 — 侧栏已有切换，此处说明 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.settings.theme}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            {(['light', 'dark'] as const).map(th => (
+              <Button
+                key={th}
+                variant={cfg.theme === th ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => update('theme', th)}
+              >
+                {th === 'light' ? '浅色' : '深色'}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            主题切换也可通过侧栏底部的切换按钮快速操作，设置在此保存后同步。
+          </p>
+        </CardContent>
+      </Card>
 
-      {/* Theme */}
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.settings.theme}</label>
-        <div className="flex gap-2">
-          {(['light', 'dark'] as const).map(th => (
-            <button
-              key={th}
-              onClick={() => update('theme', th)}
-              className={`px-3 py-1.5 text-sm rounded border ${
-                cfg.theme === th
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border hover:bg-muted'
-              }`}
-            >
-              {th === 'light' ? '浅色' : '深色'}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <button
-        onClick={handleSave}
-        className="px-4 py-2 rounded bg-primary text-primary-foreground hover:opacity-90 text-sm"
-      >
-        {saved ? '已保存 ✓' : t.settings.save}
-      </button>
+      <Button onClick={handleSave}>
+        {saved ? '已保存' : t.settings.save}
+      </Button>
     </div>
   )
 }

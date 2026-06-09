@@ -2,18 +2,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useI18n } from '../lib/i18n'
 import { useDevice } from '../lib/device-context'
-import { cn } from '../lib/utils'
-
-interface HrMessage {
-  id: string
-  company: string
-  hrName: string
-  content: string
-  receivedAt: string
-  read: boolean
-  takenOver: boolean
-  applicationId: string
-}
+import { Badge } from '../components/ui'
+import { InboxPanel } from '../components/InboxPanel'
+import type { HrMessage } from '../components/InboxPanel'
 
 const MOCK_MESSAGES: HrMessage[] = [
   {
@@ -42,16 +33,13 @@ function InboxPage() {
   const unreadCount = messages.filter(m => !m.read).length
 
   const handleTakeover = (msg: HrMessage) => {
-    // Mark as taken over + read
     setMessages(prev =>
       prev.map(m => m.id === msg.id ? { ...m, takenOver: true, read: true } : m),
     )
-    // Switch device to MANUAL mode
     if (activeDevice) {
       setDeviceMode(activeDevice.id, 'MANUAL')
     }
     // TODO: apiPost(`/applications/${msg.applicationId}/takeover`)
-    // Navigate to screen page
     navigate({ to: '/screen' })
   }
 
@@ -59,54 +47,21 @@ function InboxPage() {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m))
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold">{t.inbox.title}</h1>
+        <h1 className="font-serif text-2xl font-semibold">{t.inbox.title}</h1>
         {unreadCount > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
+          <Badge variant="destructive" className="rounded-full px-2 py-0.5 text-xs">
             {unreadCount}
-          </span>
+          </Badge>
         )}
       </div>
 
-      <div className="space-y-3">
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            onClick={() => markRead(msg.id)}
-            className={cn(
-              'border border-border rounded-lg p-4 bg-card space-y-2 cursor-pointer',
-              !msg.read && 'border-primary bg-primary/5',
-              msg.takenOver && 'opacity-60',
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  {!msg.read && <span className="w-2 h-2 rounded-full bg-primary inline-block" />}
-                  <span className="font-medium">{msg.company}</span>
-                  <span className="text-sm text-muted-foreground">{msg.hrName}</span>
-                </div>
-                <p className="text-sm mt-1">{msg.content}</p>
-                <p className="text-xs text-muted-foreground mt-1">{msg.receivedAt}</p>
-              </div>
-
-              {!msg.takenOver && (
-                <button
-                  onClick={e => { e.stopPropagation(); handleTakeover(msg) }}
-                  className="shrink-0 px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90"
-                  title={t.inbox.takeoverDesc}
-                >
-                  {t.inbox.takeover}
-                </button>
-              )}
-              {msg.takenOver && (
-                <span className="text-xs text-muted-foreground shrink-0">已接管</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <InboxPanel
+        messages={messages}
+        onMarkRead={markRead}
+        onTakeover={handleTakeover}
+      />
     </div>
   )
 }

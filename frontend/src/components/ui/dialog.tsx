@@ -13,18 +13,28 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      {/* Panel */}
-      <div className={cn('relative z-10 bg-card rounded-lg shadow-lg border border-border min-w-80 max-w-lg w-full mx-4', className)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop（模糊） */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      {/* Panel（玻璃 + 大圆角 + 染色投影） */}
+      <div
+        className={cn(
+          'relative z-10 w-full max-w-lg rounded-2xl border border-border bg-card/95 backdrop-blur shadow-shell',
+          className,
+        )}
+      >
         {title && (
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="font-semibold text-sm">{title}</span>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">&times;</button>
+          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+            <span className="font-serif text-base font-semibold">{title}</span>
+            <button
+              onClick={onClose}
+              className="text-xl leading-none text-muted-foreground transition-colors hover:text-foreground"
+            >
+              &times;
+            </button>
           </div>
         )}
-        <div className="p-4">{children}</div>
+        <div className="p-5">{children}</div>
       </div>
     </div>
   )

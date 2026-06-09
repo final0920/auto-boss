@@ -22,7 +22,7 @@ export function TerminalPanel({ deviceId }: TerminalPanelProps) {
       const term = new Terminal({
         cursorBlink: true,
         fontSize: 13,
-        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontFamily: 'SFMono-Regular, Menlo, Monaco, "Courier New", monospace',
         theme: { background: '#0d1117', foreground: '#c9d1d9' },
       })
       const fitAddon = new FitAddon()
@@ -61,5 +61,11 @@ export function TerminalPanel({ deviceId }: TerminalPanelProps) {
     }
   }, [deviceId])
 
-  return <div ref={containerRef} className="w-full h-full min-h-[400px]" />
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[400px] rounded-xl border border-border/60 overflow-hidden"
+      style={{ backdropFilter: 'blur(2px)' }}
+    />
+  )
 }

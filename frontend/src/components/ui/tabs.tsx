@@ -8,7 +8,11 @@ interface TabsContextValue {
 
 const TabsContext = createContext<TabsContextValue>({ active: '', setActive: () => {} })
 
-export function Tabs({ defaultValue, children, className }: {
+export function Tabs({
+  defaultValue,
+  children,
+  className,
+}: {
   defaultValue: string
   children: ReactNode
   className?: string
@@ -22,21 +26,18 @@ export function Tabs({ defaultValue, children, className }: {
 }
 
 export function TabsList({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={cn('flex gap-1 border-b border-border', className)}>{children}</div>
-  )
+  return <div className={cn('inline-flex gap-1 rounded-xl bg-muted/50 p-1', className)}>{children}</div>
 }
 
 export function TabsTrigger({ value, children }: { value: string; children: ReactNode }) {
   const { active, setActive } = useContext(TabsContext)
+  const isActive = active === value
   return (
     <button
       onClick={() => setActive(value)}
       className={cn(
-        'px-3 py-2 text-sm -mb-px border-b-2 transition-colors',
-        active === value
-          ? 'border-primary text-primary font-medium'
-          : 'border-transparent text-muted-foreground hover:text-foreground',
+        'rounded-lg px-3 py-1.5 text-sm font-semibold transition-all active:scale-[0.98]',
+        isActive ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       {children}
@@ -44,7 +45,11 @@ export function TabsTrigger({ value, children }: { value: string; children: Reac
   )
 }
 
-export function TabsContent({ value, children, className }: {
+export function TabsContent({
+  value,
+  children,
+  className,
+}: {
   value: string
   children: ReactNode
   className?: string

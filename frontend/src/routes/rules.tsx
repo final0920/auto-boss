@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useI18n } from '../lib/i18n'
+import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui'
 
 interface RulesConfig {
   profile: string
@@ -37,86 +38,113 @@ function RulesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
-      <h1 className="text-xl font-semibold">{t.rules.title}</h1>
+    <div className="p-6 space-y-4 max-w-2xl">
+      <h1 className="text-2xl font-serif font-semibold text-foreground">{t.rules.title}</h1>
 
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.rules.profile}</label>
-        <textarea
-          value={config.profile}
-          onChange={e => update('profile', e.target.value)}
-          rows={3}
-          className="w-full rounded border border-border px-3 py-2 text-sm bg-background resize-y"
-        />
-      </section>
+      {/* 候选人画像 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.rules.profile}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <textarea
+            value={config.profile}
+            onChange={e => update('profile', e.target.value)}
+            rows={3}
+            className="w-full rounded-xl border border-border/60 bg-muted/50 px-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 transition-all resize-y"
+          />
+        </CardContent>
+      </Card>
 
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.rules.hardRules}</label>
-        <textarea
-          value={config.hardRules}
-          onChange={e => update('hardRules', e.target.value)}
-          rows={4}
-          placeholder="每行一条规则"
-          className="w-full rounded border border-border px-3 py-2 text-sm bg-background resize-y"
-        />
-      </section>
+      {/* 硬性规则 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.rules.hardRules}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <textarea
+            value={config.hardRules}
+            onChange={e => update('hardRules', e.target.value)}
+            rows={4}
+            placeholder="每行一条规则"
+            className="w-full rounded-xl border border-border/60 bg-muted/50 px-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 transition-all resize-y"
+          />
+        </CardContent>
+      </Card>
 
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.rules.llmThreshold}: {config.llmThreshold}</label>
-        <input
-          type="range" min={0} max={100} value={config.llmThreshold}
-          onChange={e => update('llmThreshold', Number(e.target.value))}
-          className="w-full"
-        />
-        <p className="text-xs text-muted-foreground">评分 ≥ {config.llmThreshold} 才会自动投递</p>
-      </section>
+      {/* LLM 评分阈值 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {t.rules.llmThreshold}
+            <span className="ml-2 font-mono text-primary">{config.llmThreshold}</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <input
+            type="range" min={0} max={100} value={config.llmThreshold}
+            onChange={e => update('llmThreshold', Number(e.target.value))}
+            className="w-full accent-primary"
+          />
+          <p className="text-xs text-muted-foreground">
+            评分 &ge; {config.llmThreshold} 才会自动投递
+          </p>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.rules.greetingPrompt}</label>
-        <textarea
-          value={config.greetingPrompt}
-          onChange={e => update('greetingPrompt', e.target.value)}
-          rows={3}
-          className="w-full rounded border border-border px-3 py-2 text-sm bg-background resize-y"
-        />
-      </section>
+      {/* 打招呼模板 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.rules.greetingPrompt}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <textarea
+            value={config.greetingPrompt}
+            onChange={e => update('greetingPrompt', e.target.value)}
+            rows={3}
+            className="w-full rounded-xl border border-border/60 bg-muted/50 px-4 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/60 transition-all resize-y"
+          />
+        </CardContent>
+      </Card>
 
-      <section className="space-y-2">
-        <label className="text-sm font-medium">{t.rules.rateLimit}</label>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">每日上限</label>
-            <input
-              type="number" value={config.dailyLimit}
-              onChange={e => update('dailyLimit', Number(e.target.value))}
-              className="w-full rounded border border-border px-2 py-1 text-sm bg-background"
-            />
+      {/* 频率限制 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.rules.rateLimit}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">每日上限</label>
+              <Input
+                type="number"
+                value={config.dailyLimit}
+                onChange={e => update('dailyLimit', Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">最小间隔(s)</label>
+              <Input
+                type="number"
+                value={config.minIntervalSec}
+                onChange={e => update('minIntervalSec', Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">最大间隔(s)</label>
+              <Input
+                type="number"
+                value={config.maxIntervalSec}
+                onChange={e => update('maxIntervalSec', Number(e.target.value))}
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground">最小间隔(s)</label>
-            <input
-              type="number" value={config.minIntervalSec}
-              onChange={e => update('minIntervalSec', Number(e.target.value))}
-              className="w-full rounded border border-border px-2 py-1 text-sm bg-background"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">最大间隔(s)</label>
-            <input
-              type="number" value={config.maxIntervalSec}
-              onChange={e => update('maxIntervalSec', Number(e.target.value))}
-              className="w-full rounded border border-border px-2 py-1 text-sm bg-background"
-            />
-          </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <button
-        onClick={handleSave}
-        className="px-4 py-2 rounded bg-primary text-primary-foreground hover:opacity-90 text-sm"
-      >
-        {saved ? '已保存 ✓' : t.rules.save}
-      </button>
+      <Button onClick={handleSave}>
+        {saved ? '已保存' : t.rules.save}
+      </Button>
     </div>
   )
 }

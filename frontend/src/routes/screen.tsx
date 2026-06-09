@@ -3,6 +3,8 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { useDevice } from '../lib/device-context'
 import { useI18n } from '../lib/i18n'
 import { connectSocket } from '../lib/socket'
+import { Button, Card, CardContent, Badge } from '../components/ui'
+import { cn } from '../lib/utils'
 
 // ScrcpyPlayer: socket.io receives 'video-data' (H.264 NAL units),
 // decodes via WebCodecs VideoDecoder. Falls back to screenshot polling.
@@ -87,16 +89,25 @@ function ScrcpyPlayer({ deviceId }: { deviceId: string }) {
 
   if (fallback) {
     return (
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-3">
         <p className="text-xs text-muted-foreground">{t.screen.fallback}</p>
         {screenshotUrl && (
-          <img src={screenshotUrl} alt="screenshot" className="max-w-full rounded border border-border" />
+          <img
+            src={screenshotUrl}
+            alt="screenshot"
+            className="max-w-full rounded-2xl border border-border/60 shadow-shell"
+          />
         )}
       </div>
     )
   }
 
-  return <canvas ref={canvasRef} className="max-w-full rounded border border-border" />
+  return (
+    <canvas
+      ref={canvasRef}
+      className="max-w-full block rounded-2xl border border-border/60"
+    />
+  )
 }
 
 function ScreenPage() {
@@ -119,35 +130,55 @@ function ScreenPage() {
 
   if (!activeDevice) {
     return (
-      <div className="p-6 flex items-center justify-center h-full text-muted-foreground">
-        {t.device.noDevice}
+      <div className="p-6 flex items-center justify-center h-full">
+        <Card variant="subtle">
+          <CardContent className="py-12 px-16 text-center">
+            <p className="text-muted-foreground">{t.device.noDevice}</p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t.screen.title} — {activeDevice.model}</h1>
+    <div className="p-6 space-y-5">
+      {/* header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <h1 className="font-serif text-2xl font-semibold text-foreground">
+            {t.screen.title}
+          </h1>
+          <span className="text-muted-foreground">—</span>
+          <span className="font-medium text-foreground">{activeDevice.model}</span>
+          <Badge variant={isManual ? 'default' : 'warning'}>
+            {t.device.mode[activeDevice.mode]}
+          </Badge>
+        </div>
         {!isManual && (
-          <button
+          <Button
+            size="sm"
             onClick={() => setDeviceMode(activeDevice.id, 'MANUAL')}
-            className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:opacity-90"
           >
             {t.screen.switchManual}
-          </button>
+          </Button>
         )}
       </div>
 
+      {/* manual-only notice */}
       {!isManual && (
-        <div className="text-sm text-yellow-600 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+        <div className="flex items-center gap-2 bg-warning/10 border border-warning/30 text-warning-foreground rounded-xl px-4 py-2.5 text-sm">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
           {t.screen.manualOnly}
         </div>
       )}
 
+      {/* player */}
       <div
         onClick={handleCanvasClick}
-        className={isManual ? 'cursor-crosshair' : 'cursor-not-allowed pointer-events-none opacity-80'}
+        className={cn(
+          'rounded-2xl overflow-hidden',
+          isManual ? 'cursor-crosshair' : 'cursor-not-allowed pointer-events-none opacity-75',
+        )}
       >
         <ScrcpyPlayer deviceId={activeDevice.id} />
       </div>

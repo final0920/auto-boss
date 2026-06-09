@@ -1,5 +1,6 @@
 import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/utils'
+import { Badge, Button, Card, CardContent } from './ui'
 
 export interface HrMessage {
   id: string
@@ -20,19 +21,16 @@ interface TakeoverButtonProps {
 export function TakeoverButton({ onTakeover, disabled }: TakeoverButtonProps) {
   const { t } = useI18n()
   return (
-    <button
-      onClick={onTakeover}
+    <Button
+      variant={disabled ? 'outline' : 'default'}
+      size="sm"
       disabled={disabled}
+      onClick={onTakeover}
       title={t.inbox.takeoverDesc}
-      className={cn(
-        'shrink-0 px-3 py-1.5 text-sm rounded transition-colors',
-        disabled
-          ? 'bg-muted text-muted-foreground cursor-not-allowed'
-          : 'bg-primary text-primary-foreground hover:opacity-90',
-      )}
+      className="shrink-0 h-8 px-3 text-xs"
     >
       {t.inbox.takeover}
-    </button>
+    </Button>
   )
 }
 
@@ -49,45 +47,50 @@ export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <h2 className="text-base font-semibold">{t.inbox.title}</h2>
+        <h2 className="font-serif text-base font-semibold">{t.inbox.title}</h2>
         {unreadCount > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-xs font-medium">
+          <Badge variant="destructive" className="rounded-full px-2 py-0.5 text-xs">
             {unreadCount}
-          </span>
+          </Badge>
         )}
       </div>
 
       <div className="space-y-3">
         {messages.map(msg => (
-          <div
+          <Card
             key={msg.id}
+            variant="interactive"
             onClick={() => onMarkRead(msg.id)}
             className={cn(
-              'border border-border rounded-lg p-4 bg-card space-y-2 cursor-pointer transition-colors',
-              !msg.read && 'border-primary bg-primary/5',
+              'cursor-pointer',
+              !msg.read && 'border-primary/50 bg-primary/5',
               msg.takenOver && 'opacity-60',
             )}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {!msg.read && <span className="w-2 h-2 rounded-full bg-primary inline-block shrink-0" />}
-                  <span className="font-medium text-sm">{msg.company}</span>
-                  <span className="text-xs text-muted-foreground">{msg.hrName}</span>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {!msg.read && (
+                      <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                    )}
+                    <span className="font-serif font-semibold text-sm">{msg.company}</span>
+                    <span className="text-xs text-muted-foreground">{msg.hrName}</span>
+                  </div>
+                  <p className="text-sm leading-relaxed">{msg.content}</p>
+                  <p className="text-xs text-muted-foreground">{msg.receivedAt}</p>
                 </div>
-                <p className="text-sm mt-1 leading-relaxed">{msg.content}</p>
-                <p className="text-xs text-muted-foreground mt-1">{msg.receivedAt}</p>
-              </div>
 
-              {msg.takenOver ? (
-                <span className="text-xs text-muted-foreground shrink-0">已接管</span>
-              ) : (
-                <div onClick={e => e.stopPropagation()}>
-                  <TakeoverButton onTakeover={() => onTakeover(msg)} />
-                </div>
-              )}
-            </div>
-          </div>
+                {msg.takenOver ? (
+                  <span className="text-xs text-muted-foreground shrink-0">已接管</span>
+                ) : (
+                  <div onClick={e => e.stopPropagation()}>
+                    <TakeoverButton onTakeover={() => onTakeover(msg)} />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         ))}
 
         {messages.length === 0 && (

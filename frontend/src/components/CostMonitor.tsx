@@ -1,5 +1,6 @@
 import { cn } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { Card, CardHeader, CardTitle, CardContent, Badge } from './ui'
 
 export interface VlmCost {
   visionBackend: number
@@ -9,21 +10,32 @@ export interface VlmCost {
   fused: boolean
 }
 
-function CostBar({ label, used, budget }: { label: string; used: number; budget: number }) {
+function CostRow({
+  label,
+  used,
+  budget,
+}: {
+  label: string
+  used: number
+  budget: number
+}) {
   const pct = Math.min(100, Math.round((used / budget) * 100))
-  const barColor =
-    pct > 85 ? 'bg-red-500' :
-    pct > 60 ? 'bg-yellow-500' :
-    'bg-green-500'
+  const barVariant =
+    pct > 85 ? 'bg-destructive' :
+    pct > 60 ? 'bg-warning' :
+    'bg-primary'
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="tabular-nums">{used} / {budget}</span>
+        <span className="text-muted-foreground font-mono">{label}</span>
+        <span className="tabular-nums font-mono">{used} / {budget}</span>
       </div>
       <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={cn('h-1.5 rounded-full transition-all', barColor)} style={{ width: `${pct}%` }} />
+        <div
+          className={cn('h-1.5 rounded-full transition-all duration-300', barVariant)}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   )
@@ -40,26 +52,33 @@ interface CostMonitorProps {
 export function CostMonitor({ cost }: CostMonitorProps) {
   const { t } = useI18n()
   const total = cost.visionBackend + cost.planner + cost.inboxWatcher
+  const totalPct = Math.min(100, Math.round((total / cost.dailyBudget) * 100))
+
+  const circuitVariant =
+    cost.fused ? 'destructive' :
+    totalPct > 60 ? 'warning' :
+    'success'
+
+  const circuitLabel = cost.fused
+    ? `${t.logs.vlmFused}: OPEN`
+    : 'CLOSED'
 
   return (
-    <div className="border border-border rounded-lg p-4 bg-card space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{t.logs.vlmCost}</h3>
-        <span className={cn(
-          'px-2 py-0.5 rounded text-xs font-medium',
-          cost.fused ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
-        )}>
-          {cost.fused ? `${t.logs.vlmFused}: OPEN` : 'CLOSED'}
-        </span>
-      </div>
-
-      <CostBar label="vision_backend" used={cost.visionBackend} budget={cost.dailyBudget} />
-      <CostBar label="planner" used={cost.planner} budget={cost.dailyBudget} />
-      <CostBar label="inbox_watcher" used={cost.inboxWatcher} budget={cost.dailyBudget} />
-
-      <div className="border-t border-border pt-2">
-        <CostBar label={`${t.logs.vlmBudget} (total)`} used={total} budget={cost.dailyBudget} />
-      </div>
-    </div>
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">{t.logs.vlmCost}</CardTitle>
+          <Badge variant={circuitVariant}>{circuitLabel}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <CostRow label="vision_backend" used={cost.visionBackend} budget={cost.dailyBudget} />
+        <CostRow label="planner" used={cost.planner} budget={cost.dailyBudget} />
+        <CostRow label="inbox_watcher" used={cost.inboxWatcher} budget={cost.dailyBudget} />
+        <div className="border-t border-border/60 pt-3">
+          <CostRow label={`${t.logs.vlmBudget} (total)`} used={total} budget={cost.dailyBudget} />
+        </div>
+      </CardContent>
+    </Card>
   )
 }

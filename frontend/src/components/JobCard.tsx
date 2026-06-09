@@ -1,5 +1,6 @@
 import { cn } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { Badge, Button, Card, CardContent } from './ui'
 
 export interface Job {
   id: string
@@ -14,14 +15,14 @@ export interface Job {
 }
 
 export function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 80 ? 'bg-green-100 text-green-800' :
-    score >= 60 ? 'bg-yellow-100 text-yellow-800' :
-    'bg-red-100 text-red-800'
+  const variant =
+    score >= 80 ? 'success' :
+    score >= 60 ? 'warning' :
+    'destructive'
   return (
-    <span className={cn('px-2 py-0.5 rounded text-xs font-semibold tabular-nums', color)}>
+    <Badge variant={variant} className="tabular-nums text-xs">
       {score}
-    </span>
+    </Badge>
   )
 }
 
@@ -35,50 +36,66 @@ export function JobCard({ job, onBlacklist, onPin }: JobCardProps) {
   const { t } = useI18n()
 
   return (
-    <div className={cn(
-      'border border-border rounded-lg p-4 bg-card space-y-2 transition-opacity',
-      job.blacklisted && 'opacity-40',
-      job.pinned && 'border-primary',
-    )}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            {job.pinned && <span className="text-xs">📌</span>}
-            <span className="font-medium text-sm truncate">{job.title}</span>
-          </div>
-          <div className="text-xs text-muted-foreground mt-0.5">{job.company} · {job.salary}</div>
-        </div>
-        <ScoreBadge score={job.score} />
-      </div>
-
-      <p className="text-xs text-muted-foreground leading-relaxed">{job.reason}</p>
-
-      <div className="flex flex-wrap gap-1">
-        {job.tags.map(tag => (
-          <span key={tag} className="px-1.5 py-0.5 bg-muted rounded text-xs">{tag}</span>
-        ))}
-      </div>
-
-      {(onPin || onBlacklist) && (
-        <div className="flex gap-2 pt-1">
-          {onPin && (
-            <button
-              onClick={() => onPin(job.id)}
-              className="px-2 py-1 text-xs rounded border border-border hover:bg-muted"
-            >
-              {t.jobs.pin}
-            </button>
-          )}
-          {onBlacklist && (
-            <button
-              onClick={() => onBlacklist(job.id)}
-              className="px-2 py-1 text-xs rounded border border-destructive text-destructive hover:bg-destructive/10"
-            >
-              {t.jobs.blacklist}
-            </button>
-          )}
-        </div>
+    <Card
+      variant="interactive"
+      className={cn(
+        job.blacklisted && 'opacity-40',
+        job.pinned && 'border-primary/50',
       )}
-    </div>
+    >
+      <CardContent className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              {job.pinned && (
+                <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              )}
+              <span className="font-serif font-semibold text-sm leading-snug truncate">
+                {job.title}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {job.company} · {job.salary}
+            </div>
+          </div>
+          <ScoreBadge score={job.score} />
+        </div>
+
+        <p className="text-xs text-muted-foreground leading-relaxed">{job.reason}</p>
+
+        <div className="flex flex-wrap gap-1">
+          {job.tags.map(tag => (
+            <Badge key={tag} variant="outline" className="text-xs px-2 py-0.5">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+
+        {(onPin || onBlacklist) && (
+          <div className="flex gap-2 pt-1">
+            {onPin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPin(job.id)}
+                className="h-7 px-2 text-xs"
+              >
+                {t.jobs.pin}
+              </Button>
+            )}
+            {onBlacklist && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onBlacklist(job.id)}
+                className="h-7 px-2 text-xs"
+              >
+                {t.jobs.blacklist}
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

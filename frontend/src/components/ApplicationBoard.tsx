@@ -1,5 +1,6 @@
 import { cn } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { Button, Card, CardContent, CardHeader, CardTitle } from './ui'
 
 export type AppStatus = 'PENDING' | 'CLAIMED' | 'SENDING' | 'SENT' | 'FAILED'
 
@@ -26,35 +27,45 @@ function AppCard({ app, onConfirmSent, onConfirmNotSent }: AppCardProps) {
   const isSending = app.status === 'SENDING'
 
   return (
-    <div className={cn(
-      'border border-border rounded p-3 bg-background space-y-1 text-sm',
-      isSending && 'border-yellow-400 bg-yellow-50',
-    )}>
-      <div className="font-medium text-sm">{app.jobTitle}</div>
-      <div className="text-xs text-muted-foreground">{app.company}</div>
-      {app.failReason && <div className="text-xs text-destructive">{app.failReason}</div>}
-      {app.sentAt && <div className="text-xs text-muted-foreground">{app.sentAt}</div>}
-      {isSending && onConfirmSent && onConfirmNotSent && (
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={() => onConfirmSent(app.id)}
-            className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700"
-          >
-            {t.applications.confirmSent}
-          </button>
-          <button
-            onClick={() => onConfirmNotSent(app.id)}
-            className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
-          >
-            {t.applications.confirmNotSent}
-          </button>
-        </div>
-      )}
-    </div>
+    <Card
+      variant="interactive"
+      className={cn(isSending && 'border-warning/60 bg-warning/5')}
+    >
+      <CardContent className="p-3 space-y-1">
+        <div className="font-serif font-semibold text-sm leading-snug">{app.jobTitle}</div>
+        <div className="text-xs text-muted-foreground">{app.company}</div>
+        {app.failReason && (
+          <div className="text-xs text-destructive">{app.failReason}</div>
+        )}
+        {app.sentAt && (
+          <div className="text-xs text-muted-foreground">{app.sentAt}</div>
+        )}
+        {isSending && onConfirmSent && onConfirmNotSent && (
+          <div className="flex gap-2 pt-1">
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 px-2 text-xs"
+              onClick={() => onConfirmSent(app.id)}
+            >
+              {t.applications.confirmSent}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={() => onConfirmNotSent(app.id)}
+            >
+              {t.applications.confirmNotSent}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
-/** SENDING queue — shown prominently for crash-recovery confirm (AC8) */
+/** SENDING queue shown prominently for crash-recovery confirm */
 export function PendingConfirmQueue({ apps, onConfirmSent, onConfirmNotSent }: {
   apps: Application[]
   onConfirmSent: (id: string) => void
@@ -65,16 +76,26 @@ export function PendingConfirmQueue({ apps, onConfirmSent, onConfirmNotSent }: {
   if (sendingApps.length === 0) return null
 
   return (
-    <div className="border border-yellow-300 rounded-lg p-4 bg-yellow-50 space-y-2">
-      <h2 className="text-sm font-semibold text-yellow-800">
-        {t.applications.pendingConfirm} ({sendingApps.length})
-      </h2>
-      <div className="space-y-2">
+    <Card variant="default" className="border-warning/50 bg-warning/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm text-warning-foreground">
+          {t.applications.pendingConfirm}
+          <span className="ml-1.5 font-sans text-xs font-semibold text-muted-foreground">
+            ({sendingApps.length})
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2">
         {sendingApps.map(a => (
-          <AppCard key={a.id} app={a} onConfirmSent={onConfirmSent} onConfirmNotSent={onConfirmNotSent} />
+          <AppCard
+            key={a.id}
+            app={a}
+            onConfirmSent={onConfirmSent}
+            onConfirmNotSent={onConfirmNotSent}
+          />
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -87,25 +108,29 @@ export function ApplicationBoard({ apps, onConfirmSent, onConfirmNotSent }: {
 
   return (
     <div className="grid grid-cols-5 gap-3">
-      {STATUS_ORDER.map(status => (
-        <div key={status} className="space-y-2">
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">
-              {t.applications.status[status]}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({apps.filter(a => a.status === status).length})
-            </span>
-          </div>
-          <div className="space-y-2 min-h-[80px]">
-            {apps
-              .filter(a => a.status === status)
-              .map(a => (
-                <AppCard key={a.id} app={a} onConfirmSent={onConfirmSent} onConfirmNotSent={onConfirmNotSent} />
+      {STATUS_ORDER.map(status => {
+        const lane = apps.filter(a => a.status === status)
+        return (
+          <div key={status} className="space-y-2">
+            <div className="flex items-center gap-1.5 px-0.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                {t.applications.status[status]}
+              </span>
+              <span className="text-xs text-muted-foreground/70">({lane.length})</span>
+            </div>
+            <div className="space-y-2 min-h-[80px]">
+              {lane.map(a => (
+                <AppCard
+                  key={a.id}
+                  app={a}
+                  onConfirmSent={onConfirmSent}
+                  onConfirmNotSent={onConfirmNotSent}
+                />
               ))}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
