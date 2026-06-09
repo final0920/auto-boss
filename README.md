@@ -20,7 +20,12 @@
 cd backend
 uv sync --extra dev          # 安装依赖
 cp .env.example .env         # 填入 GPT_API_KEY
+# 开发（不连真机，可热重载）
 uv run uvicorn app.main:asgi_app --reload --host 127.0.0.1 --port 8000
+# ⚠️ 真机联调（Windows）必须去掉 --reload：
+#    uvicorn --reload 在 Windows 用 multiprocessing spawn 的 worker 子进程，
+#    其内部 subprocess 调 adb 拿不到设备，会导致设备/scrcpy/投递全部不可用。
+uv run uvicorn app.main:asgi_app --host 127.0.0.1 --port 8000
 uv run pytest                # 单元测试
 ```
 

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Sequence
@@ -160,6 +161,23 @@ class AdbDevice:
 
     def dumpsys(self, service: str, *, timeout: float = 10.0) -> AdbResult:
         return self._shell(f"dumpsys {service}", timeout=timeout, check=False)
+
+    # ------------------------------------------------------------------
+    # 屏幕尺寸（归一化坐标 → 像素换算用）
+    # ------------------------------------------------------------------
+
+    def screen_size(self) -> tuple[int, int]:
+        """返回当前显示分辨率 (width, height)，优先 Override（用户改过分辨率时）。
+
+        wm size 输出：Physical size: 1440x3200 / Override size: 1080x2400
+        """
+        r = self._shell("wm size", check=False)
+        text = r.stdout or ""
+        m = re.search(r"Override size:\s*(\d+)x(\d+)", text) or \
+            re.search(r"Physical size:\s*(\d+)x(\d+)", text)
+        if m:
+            return int(m.group(1)), int(m.group(2))
+        return 1080, 2400  # 兜底
 
     def __repr__(self) -> str:
         return f"AdbDevice(serial={self.serial!r})"

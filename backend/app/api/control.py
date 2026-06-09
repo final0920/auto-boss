@@ -29,15 +29,18 @@ def _get_device(serial: str):
 
 @router.post("/tap")
 async def tap(body: dict) -> dict:
-    """点击指定坐标。"""
+    """点击坐标。x,y 为归一化坐标 (0~1)，按设备屏幕尺寸转像素后拟人化点击。"""
     import asyncio
 
     serial = str(body["serial"])
-    x = int(body["x"])
-    y = int(body["y"])
+    nx = float(body["x"])
+    ny = float(body["y"])
     device = _get_device(serial)
-    await asyncio.to_thread(device.tap, x, y)
-    return {"ok": True, "serial": serial, "x": x, "y": y}
+    w, h = await asyncio.to_thread(device.screen_size)
+    px = max(0, min(w - 1, int(nx * w)))
+    py = max(0, min(h - 1, int(ny * h)))
+    await asyncio.to_thread(device.humanized_tap, px, py)
+    return {"ok": True, "serial": serial, "x": px, "y": py}
 
 
 @router.post("/swipe")
