@@ -1,24 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useDevice } from '../lib/device-context'
 import { useI18n } from '../lib/i18n'
 import type { Device } from '../lib/device-context'
 import { Button, Card, CardHeader, CardTitle, CardContent, Badge } from '../components/ui'
 import { cn } from '../lib/utils'
-
-// Mock data for development
-const MOCK_DEVICES: Device[] = [
-  {
-    id: 'dev1',
-    serial: 'ABCD1234',
-    model: 'Pixel 7',
-    status: 'online',
-    mode: 'AUTO',
-    backend: 'uia',
-    todayApplied: 12,
-    dailyQuota: 150,
-  },
-]
+import { apiGet, apiPost } from '../api'
 
 function StatusDot({ status }: { status: Device['status'] }) {
   const cls = {
@@ -53,6 +40,18 @@ function DeviceCard({ device }: { device: Device }) {
   const { t } = useI18n()
   const { setActiveDevice, setDeviceMode } = useDevice()
 
+  // 切换模式：乐观更新，同步到后端
+  const handleModeToggle = useCallback(async () => {
+    const next = device.mode !== 'MANUAL' ? 'MANUAL' : 'AUTO'
+    setDeviceMode(device.id, next)
+    try {
+      await apiPost(`/devices/${device.id}/mode`, { mode: next })
+    } catch {
+      // 失败时回滚
+      setDeviceMode(device.id, device.mode)
+    }
+  }, [device.id, device.mode, setDeviceMode])
+
   return (
     <Card variant="interactive">
       <CardHeader>
@@ -81,7 +80,7 @@ function DeviceCard({ device }: { device: Device }) {
           <span>{t.device.backend[device.backend]}</span>
         </div>
 
-        {/* progress bar */}
+        {/* 投递进度条 */}
         <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-4">
           <div
             className="h-full rounded-full bg-primary transition-all duration-300"
@@ -96,23 +95,13 @@ function DeviceCard({ device }: { device: Device }) {
           >
             {t.screen.title}
           </Button>
-          {device.mode !== 'MANUAL' ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setDeviceMode(device.id, 'MANUAL')}
-            >
-              {t.device.mode.MANUAL}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setDeviceMode(device.id, 'AUTO')}
-            >
-              {t.device.mode.AUTO}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleModeToggle}
+          >
+            {device.mode !== 'MANUAL' ? t.device.mode.MANUAL : t.device.mode.AUTO}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -122,22 +111,57 @@ function DeviceCard({ device }: { device: Device }) {
 function IndexPage() {
   const { t } = useI18n()
   const { devices, setDevices } = useDevice()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // TODO: replace mock with apiGet<Device[]>('/devices')
-    setDevices(MOCK_DEVICES)
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+
+    apiGet<Device[]>('/devices')
+      .then(data => {
+        if (!cancelled) setDevices(data)
+      })
+      .catch(() => {
+        if (!cancelled) setError('无法连接到后端，请确认服务已启动')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
   }, [setDevices])
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="font-serif text-2xl font-semibold text-foreground">{t.device.title}</h1>
-      {devices.length === 0 ? (
+
+      {loading && (
+        <Card variant="subtle">
+          <CardContent className="py-10 text-center">
+            <p className="text-muted-foreground text-sm">加载中…</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && error && (
+        <Card variant="subtle" className="border-destructive/40 bg-destructive/5">
+          <CardContent className="py-8 text-center">
+            <p className="text-destructive text-sm">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && devices.length === 0 && (
         <Card variant="subtle">
           <CardContent className="py-10 text-center">
             <p className="text-muted-foreground">{t.device.noDevice}</p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {!loading && !error && devices.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {devices.map(d => <DeviceCard key={d.id} device={d} />)}
         </div>

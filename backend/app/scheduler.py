@@ -25,14 +25,14 @@ async def _inbox_watcher_job() -> None:
     from app.automation.device_mode import device_mode_manager
 
     if not device_mode_manager.is_inbox_active():
-        logger.debug("inbox_watcher_job: skipped (mode=%s)", device_mode_manager.mode.value)
+        logger.debug("inbox_watcher_job: 已跳过（当前模式=%s）", device_mode_manager.mode.value)
         return
 
     try:
         from app.automation.inbox_watcher import run_inbox_check  # 惰性导入
         await run_inbox_check()
     except ImportError:
-        logger.debug("inbox_watcher not implemented yet, skipping")
+        logger.debug("inbox_watcher 尚未实现，跳过")
     except Exception as exc:
         logger.exception("inbox_watcher_job error: %s", exc)
 
@@ -42,13 +42,13 @@ async def _dispatcher_job() -> None:
     from app.automation.device_mode import device_mode_manager
 
     if device_mode_manager.mode.value != "AUTO":
-        logger.debug("dispatcher_job: skipped (mode=%s)", device_mode_manager.mode.value)
+        logger.debug("dispatcher_job: 已跳过（当前模式=%s）", device_mode_manager.mode.value)
         return
 
     try:
         from app.pipeline.dispatcher import dispatch_loop
         stats = await dispatch_loop()
-        logger.info("dispatcher_job: %s", stats)
+        logger.info("dispatcher_job 完成: %s", stats)
     except Exception as exc:
         logger.exception("dispatcher_job error: %s", exc)
 
@@ -80,6 +80,6 @@ def register_jobs(scheduler: AsyncIOScheduler) -> None:
     )
 
     logger.info(
-        "Registered scheduler jobs: inbox_watcher(interval=%ds), dispatcher(interval=5min)",
+        "调度任务已注册: inbox_watcher(间隔=%ds), dispatcher(间隔=5min)",
         poll_interval,
     )

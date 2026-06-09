@@ -1,15 +1,16 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { connectSocket } from '../lib/socket'
 import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/utils'
 
 interface ScrcpyPlayerProps {
   deviceId: string
-  /** If false, overlay a "manual only" mask over the canvas */
+  /** false 时在画面上叠加"仅手动"遮罩 */
   interactive: boolean
   onTap?: (x: number, y: number) => void
 }
 
+/** 截图轮询降级路径（WebCodecs 不可用时启用） */
 function useScreenshotPolling(deviceId: string, active: boolean) {
   const [url, setUrl] = useState<string | null>(null)
 
@@ -28,54 +29,105 @@ function useScreenshotPolling(deviceId: string, active: boolean) {
   return url
 }
 
+/**
+ * 判断一段 H.264 Annex-B 数据中是否含有 IDR（关键帧）NAL 单元。
+ * 检测 start-code 后的 NAL type（低5位 = 5 → IDR）。
+ */
+function containsH264Keyframe(buf: Uint8Array): boolean {
+  for (let i = 0; i + 4 < buf.length; i++) {
+    const is4 = buf[i] === 0 && buf[i + 1] === 0 && buf[i + 2] === 0 && buf[i + 3] === 1
+    const is3 = buf[i] === 0 && buf[i + 1] === 0 && buf[i + 2] === 1
+    if (is4 || is3) {
+      const nalByte = buf[i + (is4 ? 4 : 3)]
+      if (nalByte !== undefined && (nalByte & 0x1f) === 5) return true
+    }
+  }
+  return false
+}
+
 export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps) {
   const { t } = useI18n()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  // 挂载点 div，解码器渲染器的 canvas 会直接插入其中
+  const containerRef = useRef<HTMLDivElement>(null)
   const [fallback, setFallback] = useState(false)
+  const [codecReady, setCodecReady] = useState(false)
   const screenshotUrl = useScreenshotPolling(deviceId, fallback)
 
-  // WebCodecs decode path
+  const goFallback = useCallback(() => setFallback(true), [])
+
+  // WebCodecs 解码路径
   useEffect(() => {
-    if (!('VideoDecoder' in window)) { setFallback(true); return }
+    if (fallback) return
+    if (!('VideoDecoder' in window)) { goFallback(); return }
 
-    const socket = connectSocket()
-    let decoder: VideoDecoder | null = null
+    let disposed = false
+    let writer: WritableStreamDefaultWriter | null = null
 
-    try {
-      decoder = new VideoDecoder({
-        output(frame) {
-          const canvas = canvasRef.current
-          if (!canvas) { frame.close(); return }
-          const ctx = canvas.getContext('2d')
-          if (!ctx) { frame.close(); return }
-          canvas.width = frame.displayWidth
-          canvas.height = frame.displayHeight
-          ctx.drawImage(frame, 0, 0)
-          frame.close()
-        },
-        error() { setFallback(true) },
-      })
-      decoder.configure({ codec: 'avc1.42E01E', optimizeForLatency: true })
-    } catch { setFallback(true); return }
+    async function init() {
+      const { WebCodecsVideoDecoder, BitmapVideoFrameRenderer } =
+        await import('@yume-chan/scrcpy-decoder-webcodecs')
+      const { ScrcpyVideoCodecId } = await import('@yume-chan/scrcpy')
 
-    socket.on('video-data', (data: ArrayBuffer) => {
-      if (!decoder || decoder.state === 'closed') return
+      if (disposed || !containerRef.current) return
+
+      // 把渲染器的内部 canvas 插入挂载点
+      const renderer = new BitmapVideoFrameRenderer()
+      const rendererCanvas = renderer.canvas as HTMLCanvasElement
+      rendererCanvas.className = 'max-w-full block'
+      containerRef.current.appendChild(rendererCanvas)
+
+      let decoder
       try {
-        decoder.decode(new EncodedVideoChunk({
-          type: 'key',
-          timestamp: performance.now() * 1000,
-          data,
-        }))
-      } catch { /* wait for next keyframe */ }
-    })
+        decoder = new WebCodecsVideoDecoder({
+          codec: ScrcpyVideoCodecId.H264,
+          renderer,
+        })
+      } catch {
+        goFallback()
+        return
+      }
 
-    socket.emit('join-device', deviceId)
+      writer = decoder.writable.getWriter() as WritableStreamDefaultWriter
+      if (!disposed) setCodecReady(true)
+
+      let configSent = false  // SPS/PPS 配置包只发一次
+
+      const socket = connectSocket()
+      socket.on('video-data', async (raw: ArrayBuffer | Uint8Array) => {
+        if (!writer || disposed) return
+        const data = raw instanceof Uint8Array ? raw : new Uint8Array(raw)
+        try {
+          if (!configSent) {
+            // 首帧同时作为 configuration 包（含 SPS/PPS）
+            await writer.write({ type: 'configuration', data })
+            configSent = true
+          }
+          await writer.write({
+            type: 'data',
+            keyframe: containsH264Keyframe(data),
+            pts: BigInt(Math.round(performance.now() * 1000)),
+            data,
+          })
+        } catch {
+          goFallback()
+        }
+      })
+
+      socket.emit('join-device', deviceId)
+    }
+
+    init().catch(goFallback)
+
     return () => {
+      disposed = true
+      const socket = connectSocket()
       socket.off('video-data')
       socket.emit('leave-device', deviceId)
-      decoder?.close()
+      writer?.releaseLock()
+      // 清空挂载点中的渲染器 canvas
+      if (containerRef.current) containerRef.current.innerHTML = ''
     }
-  }, [deviceId])
+  }, [deviceId, fallback, goFallback])
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!interactive || !onTap) return
@@ -86,6 +138,7 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
     )
   }
 
+  // 截图降级路径
   if (fallback) {
     return (
       <div className="space-y-2">
@@ -109,7 +162,14 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
         interactive ? 'cursor-crosshair' : 'cursor-not-allowed',
       )}
     >
-      <canvas ref={canvasRef} className="max-w-full block" />
+      {/* WebCodecs 等待首帧时显示占位骨架 */}
+      {!codecReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted/60 rounded-2xl min-h-[200px]">
+          <span className="text-xs text-muted-foreground animate-pulse">等待视频流…</span>
+        </div>
+      )}
+      {/* 渲染器 canvas 动态插入此容器 */}
+      <div ref={containerRef} />
       {!interactive && (
         <div className="absolute inset-0 bg-background/30 backdrop-blur-sm flex items-center justify-center rounded-2xl">
           <span className="text-xs text-foreground bg-card/80 backdrop-blur px-3 py-1.5 rounded-full border border-border/60">

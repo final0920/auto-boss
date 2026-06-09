@@ -1,12 +1,12 @@
 """
-LLM client — unified wrapper around gpt-5.5 (text + multimodal).
+LLM 客户端 — gpt-5.5 统一封装（文本 + 多模态）。
 
-Rules:
-  - openai.OpenAI constructed with base_url/api_key from settings.
-  - chat() supports text with reasoning_effort and optional JSON mode.
-  - locate() sends a screenshot + instruction and returns (x, y) in 0-1000 space.
-  - Authorization/key never written to logs.
-  - Retries on transient errors (rate-limit / server error); fast-fail on client errors.
+规则：
+  - 使用 settings 中的 base_url/api_key 构造 openai.OpenAI。
+  - chat() 支持文本推理（reasoning_effort）和可选 JSON 模式。
+  - locate() 发送截图 + 指令，返回 0-1000 归一化坐标 (x, y)。
+  - Authorization/key 不写入日志。
+  - 临时错误（限速/服务端错误）自动重试；客户端错误快速失败。
 """
 from __future__ import annotations
 
@@ -24,11 +24,11 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Retry config
+# 重试配置
 _MAX_RETRIES = 3
-_RETRY_BACKOFF_BASE = 2.0  # seconds; doubles each attempt
+_RETRY_BACKOFF_BASE = 2.0  # 秒；每次翻倍
 
-# Status codes that warrant a retry
+# 需要重试的 HTTP 状态码
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
@@ -43,10 +43,10 @@ def _should_retry(exc: openai.OpenAIError) -> bool:
 
 
 class LLMClient:
-    """Thin, retrying wrapper around OpenAI SDK targeting gpt-5.5 at gpt.pkpp.cn."""
+    """轻量级 OpenAI SDK 封装，目标模型 gpt-5.5（gpt.pkpp.cn），含自动重试。"""
 
     def __init__(self) -> None:
-        # api_key kept in object but never serialised / logged
+        # api_key 保留在对象中，不序列化/不写日志
         self._client = OpenAI(
             base_url=settings.gpt_base_url,
             api_key=settings.gpt_api_key,
@@ -94,17 +94,17 @@ class LLMClient:
                 if isinstance(exc, openai.APIStatusError):
                     safe_msg += f"(status={exc.status_code})"
                 if not _should_retry(exc):
-                    logger.error("LLM chat non-retryable error: %s", safe_msg)
+                    logger.error("LLM chat 不可重试错误: %s", safe_msg)
                     raise
                 last_exc = exc
                 wait = _RETRY_BACKOFF_BASE ** attempt
                 logger.warning(
-                    "LLM chat transient error %s, retry %d/%d in %.1fs",
+                    "LLM chat 临时错误 %s，第 %d/%d 次重试，等待 %.1fs",
                     safe_msg, attempt + 1, _MAX_RETRIES, wait,
                 )
                 time.sleep(wait)
 
-        logger.error("LLM chat failed after %d retries", _MAX_RETRIES)
+        logger.error("LLM chat 重试 %d 次后仍失败", _MAX_RETRIES)
         raise last_exc  # type: ignore[misc]
 
     # ------------------------------------------------------------------
@@ -153,14 +153,14 @@ class LLMClient:
 
 
 # ------------------------------------------------------------------
-# Module-level singleton (lazy, reused across callers)
+# 模块级单例（惰性初始化，跨调用方复用）
 # ------------------------------------------------------------------
 
 _client_instance: LLMClient | None = None
 
 
 def get_client() -> LLMClient:
-    """Return the shared LLMClient singleton."""
+    """返回共享的 LLMClient 单例。"""
     global _client_instance
     if _client_instance is None:
         _client_instance = LLMClient()

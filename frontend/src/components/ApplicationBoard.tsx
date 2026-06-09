@@ -119,7 +119,12 @@ export function ApplicationBoard({ apps, onConfirmSent, onConfirmNotSent }: {
               <span className="text-xs text-muted-foreground/70">({lane.length})</span>
             </div>
             <div className="space-y-2 min-h-[80px]">
-              {lane.map(a => (
+              {lane.length === 0 ? (
+                /* 空列占位：虚线边框提示 */
+                <div className="rounded-xl border border-dashed border-border/40 min-h-[80px] flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground/50">—</span>
+                </div>
+              ) : lane.map(a => (
                 <AppCard
                   key={a.id}
                   app={a}

@@ -44,15 +44,15 @@ async def connect(sid: str, environ: dict, auth: dict | None = None) -> bool:
     from app.security.auth import sio_auth_ok
 
     if not sio_auth_ok(environ):
-        logger.warning("Socket.IO connection rejected sid=%s", sid)
+        logger.warning("Socket.IO 连接已拒绝 sid=%s", sid)
         return False
-    logger.debug("Socket.IO connected sid=%s", sid)
+    logger.debug("Socket.IO 已连接 sid=%s", sid)
     return True
 
 
 @sio.event
 async def disconnect(sid: str) -> None:
-    logger.debug("Socket.IO disconnected sid=%s", sid)
+    logger.debug("Socket.IO 已断开 sid=%s", sid)
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ async def disconnect(sid: str) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 1. 配置验证已在 pydantic model_validator 完成；再次触发以便日志明确
-    logger.info("Starting boss-autoapply backend bind_host=%s", settings.bind_host)
+    logger.info("boss-autoapply 后端启动 bind_host=%s", settings.bind_host)
 
     # L2: 空 token 安全提示（AC12）
     if not settings.terminal_token:
@@ -75,16 +75,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # 2. 初始化 DB
     from app.db import init_db
     init_db()
-    logger.info("DB initialized")
+    logger.info("数据库初始化完成")
 
     # 3. 启动自检：SENDING 记录推人工确认（AC8）
     try:
         from app.pipeline.dispatcher import scan_sending
         stuck = scan_sending()
         if stuck:
-            logger.warning("scan_sending: %d SENDING records need manual confirmation: %s", len(stuck), stuck)
+            logger.warning("scan_sending: 发现 %d 条 SENDING 记录需人工确认: %s", len(stuck), stuck)
     except Exception as exc:
-        logger.warning("scan_sending error: %s", exc)
+        logger.warning("scan_sending 出错: %s", exc)
 
     # 4. APScheduler
     from app.scheduler import build_scheduler, register_jobs
@@ -92,32 +92,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     register_jobs(scheduler)
     scheduler.start()
     app.state.scheduler = scheduler
-    logger.info("APScheduler started")
+    logger.info("APScheduler 已启动")
 
     # 5. 注册 scrcpy Socket.IO 命名空间
     try:
         from app.scrcpy.sio import register_scrcpy_namespace
         register_scrcpy_namespace(sio)
     except Exception as exc:
-        logger.warning("scrcpy namespace registration failed (non-fatal): %s", exc)
+        logger.warning("scrcpy 命名空间注册失败（非致命）: %s", exc)
 
     yield
 
     # --- shutdown ---
-    logger.info("Shutting down boss-autoapply backend")
+    logger.info("boss-autoapply 后端正在关闭")
 
     # 停止调度器
     try:
         scheduler.shutdown(wait=False)
     except Exception as exc:
-        logger.debug("scheduler shutdown error: %s", exc)
+        logger.debug("调度器关闭出错: %s", exc)
 
     # 清理所有 terminal sessions
     try:
         from app.api.terminal import get_terminal_service
         await get_terminal_service().close_all()
     except Exception as exc:
-        logger.debug("terminal close_all error: %s", exc)
+        logger.debug("terminal close_all 出错: %s", exc)
 
 
 # ---------------------------------------------------------------------------

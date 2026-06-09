@@ -94,7 +94,16 @@ export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps
         ))}
 
         {messages.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t.common.loading}</p>
+          /* 空态：无消息时的占位提示 */
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground/50">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 4h16v12H4z" rx="2" />
+                <path d="M4 4l8 8 8-8" />
+              </svg>
+            </div>
+            <p className="text-sm text-muted-foreground">{t.inbox.title} — 暂无消息</p>
+          </div>
         )}
       </div>
     </div>

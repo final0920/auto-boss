@@ -116,33 +116,33 @@ async def execute_apply(application_id: int) -> tuple[bool, str, bool]:
                         geetest_detected = True
                         fail_reason = "geetest detected"
                         logger.warning(
-                            "executor: geetest detected at step %d app_id=%d",
+                            "executor: 检测到 geetest，步骤 %d app_id=%d",
                             step_idx, application_id,
                         )
                         return False, fail_reason, geetest_detected
                 except Exception:
                     pass
 
-                fail_reason = result.error or f"step {step_idx} failed: {task.kind}/{task.target}"
+                fail_reason = result.error or f"第{step_idx}步失败: {task.kind}/{task.target}"
                 logger.warning(
-                    "executor: step %d failed app_id=%d reason=%r",
+                    "executor: 第 %d 步失败 app_id=%d 原因=%r",
                     step_idx, application_id, fail_reason,
                 )
                 return False, fail_reason, False
 
             logger.debug(
-                "executor: step %d ok app_id=%d action=%r",
+                "executor: 第 %d 步完成 app_id=%d action=%r",
                 step_idx, application_id, result.action_taken,
             )
 
         except RuntimeError as exc:
             # device_mode 不是 AUTO 或锁超时
             fail_reason = str(exc)
-            logger.error("executor: device_mode error at step %d: %s", step_idx, exc)
+            logger.error("executor: device_mode 错误于第 %d 步: %s", step_idx, exc)
             return False, fail_reason, False
         except Exception as exc:
-            fail_reason = f"step {step_idx} exception: {exc}"
-            logger.exception("executor: unexpected error at step %d", step_idx)
+            fail_reason = f"第{step_idx}步异常: {exc}"
+            logger.exception("executor: 第 %d 步发生异常", step_idx)
             return False, fail_reason, False
 
     return True, "", False
@@ -159,7 +159,7 @@ _backend_managers: dict[str, BackendManager] = {}
 def register_backend_manager(device_id: str, mgr: BackendManager) -> None:
     """注册设备对应的 BackendManager（main.py 启动时调用）。"""
     _backend_managers[device_id] = mgr
-    logger.info("executor: registered BackendManager for device_id=%r", device_id)
+    logger.info("executor: 已注册 BackendManager device_id=%r", device_id)
 
 
 def _get_backend_manager(device_id: str) -> Optional[BackendManager]:

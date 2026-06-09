@@ -37,7 +37,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _is_localhost_origin(origin: str) -> bool:
-    """Return True when origin host resolves to loopback."""
+    """origin 主机解析为回环地址时返回 True。"""
     after_scheme = origin.split("://", 1)[-1]
     # IPv6 literal: http://[::1]:8080 — extract bracketed address first
     if after_scheme.startswith("["):
@@ -54,10 +54,10 @@ def _is_localhost_origin(origin: str) -> bool:
 
 
 def _token_ok(provided: str) -> bool:
-    """Constant-time comparison against configured token."""
+    """与配置 token 进行常量时间比较。"""
     expected = settings.terminal_token
     if not expected:
-        # No token configured — only safe when binding to localhost (validated at startup)
+        # 未配置 token — 仅绑定 localhost 时安全（启动时已校验）
         return True
     return hmac.compare_digest(
         hashlib.sha256(provided.encode()).digest(),
@@ -66,15 +66,15 @@ def _token_ok(provided: str) -> bool:
 
 
 def _check_origin(request: Request) -> None:
-    """Reject cross-origin requests (AC12)."""
+    """拒绝跨域请求（AC12）。"""
     origin = request.headers.get("origin", "")
     if not origin:
-        # No Origin header — direct/same-origin call; allow.
+        # 无 Origin 头 — 直接/同源请求，放行
         return
     if _is_localhost_origin(origin):
         return
     logger.warning(
-        "Rejected cross-origin request origin=%s path=%s", origin, request.url.path
+        "已拒绝跨域请求 origin=%s path=%s", origin, request.url.path
     )
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -83,15 +83,15 @@ def _check_origin(request: Request) -> None:
 
 
 def _check_peer_ip(request: Request) -> None:
-    """L2: when TERMINAL_TOKEN is empty, verify TCP peer is loopback (AC12 depth).
+    """L2: TERMINAL_TOKEN 为空时，校验 TCP 对端为回环地址（AC12 纵深）。
 
-    Adds a second guard in no-token mode: even if Origin spoofing somehow
-    passed _check_origin, the TCP peer must be loopback.
-    ASGI scope['client'] is (host, port); absent in some test/proxy stacks
-    — skipped silently in that case to avoid breaking valid setups.
+    无 token 模式下的第二道防线：即便 Origin 欺骗绕过了 _check_origin，
+    TCP 对端也必须是回环地址。
+    ASGI scope['client'] 为 (host, port)；部分测试/代理场景不存在，
+    此时静默跳过，避免破坏合法配置。
     """
     if settings.terminal_token:
-        return  # token is the primary guard; peer check not needed
+        return  # token 是主防线；无需再做对端检查
     try:
         client = request.scope.get("client")
         if client is None:
@@ -100,7 +100,7 @@ def _check_peer_ip(request: Request) -> None:
         addr = ipaddress.ip_address(peer_ip)
         if not addr.is_loopback:
             logger.warning(
-                "Rejected non-loopback peer ip=%s path=%s (no token configured)",
+                "已拒绝非回环对端 ip=%s path=%s（未配置 token）",
                 peer_ip, request.url.path,
             )
             raise HTTPException(
@@ -114,9 +114,9 @@ def _check_peer_ip(request: Request) -> None:
 
 
 def _check_token(credentials: HTTPAuthorizationCredentials | None) -> None:
-    """Reject requests with invalid/missing Bearer token when token is configured."""
+    """配置了 token 时，拒绝无效/缺失的 Bearer token 请求。"""
     if not settings.terminal_token:
-        return  # localhost-only mode, no token required
+        return  # 仅 localhost 模式，无需 token
     if credentials is None or not _token_ok(credentials.credentials):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -134,12 +134,12 @@ async def require_auth(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """FastAPI dependency — raises 401/403 on auth failure.
+    """FastAPI 依赖 — 鉴权失败时抛 401/403。
 
-    Apply to every endpoint with write or device side-effects:
-    /control/*, /devices, /config, SSE event stream.
+    适用于所有带写/设备副作用的端点：
+    /control/*, /devices, /config, SSE 事件流。
 
-    Check order: Origin → peer IP (no-token mode) → token.
+    校验顺序：Origin → 对端 IP（无 token 模式）→ token。
     """
     _check_origin(request)
     _check_peer_ip(request)
@@ -152,10 +152,10 @@ async def require_auth(
 
 
 async def verify_ws_request(request: Request, token: str | None = None) -> None:
-    """Call during WS/Socket.IO connection handshake.
+    """在 WS/Socket.IO 连接握手阶段调用。
 
-    WS upgrade doesn't carry an HTTP Authorization header; token arrives
-    via query param `?token=...`.
+    WS 升级请求不携带 HTTP Authorization 头；token 通过
+    查询参数 `?token=...` 传入。
     """
     _check_origin(request)
     _check_peer_ip(request)
@@ -173,12 +173,12 @@ async def verify_ws_request(request: Request, token: str | None = None) -> None:
 
 
 def sio_auth_ok(environ: dict) -> bool:
-    """Check auth for a Socket.IO connect event.
+    """校验 Socket.IO connect 事件的鉴权。
 
-    Called from the socketio server's connect handler.
-    `environ` is the ASGI scope dict passed by python-socketio.
+    由 socketio 服务器的 connect 处理器调用。
+    `environ` 是 python-socketio 传入的 ASGI scope 字典。
     """
-    # Origin check
+    # Origin 校验
     origin = ""
     for k, v in environ.get("headers", []):
         key = k.decode() if isinstance(k, bytes) else k
@@ -186,10 +186,10 @@ def sio_auth_ok(environ: dict) -> bool:
             origin = v.decode() if isinstance(v, bytes) else v
             break
     if origin and not _is_localhost_origin(origin):
-        logger.warning("Socket.IO rejected cross-origin connect from %s", origin)
+        logger.warning("Socket.IO 已拒绝跨域连接 origin=%s", origin)
         return False
 
-    # Token check
+    # Token 校验
     if settings.terminal_token:
         query_string = environ.get("QUERY_STRING", "")
         if isinstance(query_string, bytes):
@@ -200,7 +200,7 @@ def sio_auth_ok(environ: dict) -> bool:
                 token = part[len("token="):]
                 break
         if not _token_ok(token):
-            logger.warning("Socket.IO rejected missing/invalid token")
+            logger.warning("Socket.IO 已拒绝：token 缺失或无效")
             return False
 
     return True

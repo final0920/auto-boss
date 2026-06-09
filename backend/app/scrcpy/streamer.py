@@ -4,15 +4,16 @@ control=false：只读视频流，不向设备发送任何控制指令。
 
 scrcpy-server JAR 路径：
   优先读 SCRCPY_SERVER_JAR 环境变量；
-  默认查找 backend/resources/scrcpy-server.jar。
-  JAR 缺失时 ScrcpyStreamer.start() 抛出 ScrcpyServerMissingError，
+  默认查找 backend/app/scrcpy/resources/scrcpy-server.jar。
+  JAR 缺失时抛出 ScrcpyServerMissingError，
   调用方应降级为截图轮询（useScreenshotPolling）。
 
-下载说明（TODO）：
+下载说明：
+  运行 uv run python scripts/download_scrcpy_server.py（走代理 127.0.0.1:7890）。
   scrcpy-server 与 scrcpy 客户端版本必须匹配。
   官方 release：https://github.com/Genymobile/scrcpy/releases
   推荐版本：v3.x，下载对应 scrcpy-server，重命名为 scrcpy-server.jar，
-  放到 backend/resources/scrcpy-server.jar。
+  放到 backend/app/scrcpy/resources/scrcpy-server.jar。
 """
 
 from __future__ import annotations
@@ -31,8 +32,8 @@ logger = logging.getLogger(__name__)
 # scrcpy-server 推送到设备的临时路径
 _DEVICE_SERVER_PATH = "/data/local/tmp/scrcpy-server.jar"
 
-# 默认本地 JAR 搜索路径（相对 backend/）
-_DEFAULT_JAR = Path(__file__).parents[3] / "resources" / "scrcpy-server.jar"
+# 默认本地 JAR 搜索路径（app/scrcpy/resources/）
+_DEFAULT_JAR = Path(__file__).parent / "resources" / "scrcpy-server.jar"
 
 
 class ScrcpyServerMissingError(RuntimeError):
@@ -86,9 +87,10 @@ class ScrcpyStreamer:
             return _DEFAULT_JAR
         raise ScrcpyServerMissingError(
             f"scrcpy-server JAR 未找到（默认路径: {_DEFAULT_JAR}）。\n"
-            "下载说明：https://github.com/Genymobile/scrcpy/releases\n"
+            "下载说明：运行 uv run python scripts/download_scrcpy_server.py\n"
+            "或手动下载：https://github.com/Genymobile/scrcpy/releases\n"
             "下载对应版本的 scrcpy-server，重命名为 scrcpy-server.jar，"
-            "放到 backend/resources/scrcpy-server.jar。"
+            "放到 backend/app/scrcpy/resources/scrcpy-server.jar。"
         )
 
     # ------------------------------------------------------------------
@@ -166,7 +168,7 @@ class ScrcpyStreamer:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        logger.info("scrcpy-server launched on %s pid=%s", self.serial, self._proc.pid)
+        logger.info("scrcpy-server 已在 %s 上启动 pid=%s", self.serial, self._proc.pid)
 
     # ------------------------------------------------------------------
     # 连接本地 socket 读取帧
@@ -180,7 +182,7 @@ class ScrcpyStreamer:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(("127.0.0.1", self.LOCAL_PORT))
                 sock.setblocking(False)
-                logger.info("scrcpy socket connected (attempt %d)", i + 1)
+                logger.info("scrcpy socket 已连接（第 %d 次尝试）", i + 1)
                 return sock
             except OSError:
                 if i == retries - 1:
@@ -212,17 +214,17 @@ class ScrcpyStreamer:
             loop = asyncio.get_running_loop()
             dummy = await loop.sock_recv(sock, 1)
             if dummy != b"\x00":
-                logger.warning("scrcpy: unexpected dummy byte %r", dummy)
+                logger.warning("scrcpy: dummy byte 异常 %r", dummy)
 
             reader = FrameReader()
             while self._running:
                 try:
                     chunk = await loop.sock_recv(sock, 65536)
                 except OSError as exc:
-                    logger.warning("scrcpy socket read error: %s", exc)
+                    logger.warning("scrcpy socket 读取错误: %s", exc)
                     break
                 if not chunk:
-                    logger.info("scrcpy socket closed by server")
+                    logger.info("scrcpy socket 已被服务端关闭")
                     break
                 for item in reader.feed(chunk):
                     yield item
@@ -243,7 +245,7 @@ class ScrcpyStreamer:
                 self._proc.terminate()
                 await asyncio.wait_for(self._proc.wait(), timeout=3.0)
             except Exception as exc:
-                logger.debug("scrcpy stop error: %s", exc)
+                logger.debug("scrcpy 停止出错: %s", exc)
         self._proc = None
         await self._remove_forward()
-        logger.info("scrcpy streamer stopped for %s", self.serial)
+        logger.info("scrcpy streamer 已停止 serial=%s", self.serial)

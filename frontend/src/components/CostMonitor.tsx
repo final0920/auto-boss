@@ -26,10 +26,16 @@ function CostRow({
     'bg-primary'
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 group">
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground font-mono">{label}</span>
-        <span className="tabular-nums font-mono">{used} / {budget}</span>
+        <span className="tabular-nums font-mono">
+          {used} / {budget}
+          {/* hover 时显示百分比 */}
+          <span className="ml-1.5 opacity-0 group-hover:opacity-60 transition-opacity text-muted-foreground">
+            {pct}%
+          </span>
+        </span>
       </div>
       <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
         <div

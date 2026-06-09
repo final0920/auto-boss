@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useI18n, type Locale } from '../lib/i18n'
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui'
+import { apiGet, apiPut } from '../api'
 
 type BackendOverride = 'auto' | 'uia' | 'vision'
 
@@ -10,38 +11,78 @@ interface SettingsState {
   backendLocked: boolean
   language: Locale
   theme: 'light' | 'dark'
-  // model info display only — keys are never stored in frontend
+  // 只读展示，Key 走 .env，不由前端存储
   modelName: string
   modelBaseUrl: string
 }
 
-const DEFAULT: SettingsState = {
+// 后端未连通时的合理默认值
+const FALLBACK: SettingsState = {
   backendOverride: 'auto',
   backendLocked: false,
   language: 'zh',
   theme: 'light',
-  modelName: 'gpt-5.5',
-  modelBaseUrl: 'https://gpt.pkpp.cn',
+  modelName: '—',
+  modelBaseUrl: '—',
 }
 
 function SettingsPage() {
   const { t, setLocale } = useI18n()
-  const [cfg, setCfg] = useState<SettingsState>(DEFAULT)
-  const [saved, setSaved] = useState(false)
+  const [cfg, setCfg] = useState<SettingsState>(FALLBACK)
+  const [loading, setLoading] = useState(true)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // 从后端加载设置
+  useEffect(() => {
+    let cancelled = false
+    apiGet<SettingsState>('/config/settings')
+      .then(data => {
+        if (!cancelled) setCfg(data)
+      })
+      .catch(() => {
+        // 加载失败：保留 fallback，允许用户查看并保存
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const update = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) =>
     setCfg(prev => ({ ...prev, [key]: value }))
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaveState('saving')
+    // 语言切换立即生效
     setLocale(cfg.language)
-    // TODO: apiPut('/config/settings', { backendOverride: cfg.backendOverride, backendLocked: cfg.backendLocked })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      await apiPut('/config/settings', {
+        backendOverride: cfg.backendOverride,
+        backendLocked: cfg.backendLocked,
+        language: cfg.language,
+        theme: cfg.theme,
+      })
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 2000)
+    } catch {
+      setSaveState('error')
+      setTimeout(() => setSaveState('idle'), 3000)
+    }
   }
+
+  const saveLabel =
+    saveState === 'saving' ? '保存中…' :
+    saveState === 'saved'  ? '已保存' :
+    saveState === 'error'  ? '保存失败，重试' :
+    t.settings.save
 
   return (
     <div className="p-6 space-y-4 max-w-lg">
       <h1 className="text-2xl font-serif font-semibold text-foreground">{t.settings.title}</h1>
+
+      {loading && (
+        <p className="text-sm text-muted-foreground">加载配置中…</p>
+      )}
 
       {/* 模型配置 — 只读展示，Key 走 .env */}
       <Card>
@@ -59,7 +100,7 @@ function SettingsPage() {
               <Input value={cfg.modelBaseUrl} readOnly className="cursor-not-allowed opacity-70" />
             </div>
           </div>
-          {/* API Key 提示：Key 走 .env，后端覆盖，前端不存储 */}
+          {/* API Key 从 .env 注入，后端持有，前端不存储 */}
           <p className="text-xs text-muted-foreground bg-muted/60 border border-border/60 rounded-xl px-3 py-2">
             {t.settings.apiKeyNote}
           </p>
@@ -78,6 +119,7 @@ function SettingsPage() {
                 key={opt}
                 variant={cfg.backendOverride === opt ? 'default' : 'outline'}
                 size="sm"
+                disabled={loading}
                 onClick={() => update('backendOverride', opt)}
               >
                 {opt === 'auto' ? '自动' : opt === 'uia' ? '控件树' : '视觉'}
@@ -90,6 +132,7 @@ function SettingsPage() {
                 type="checkbox"
                 id="lock-backend"
                 checked={cfg.backendLocked}
+                disabled={loading}
                 onChange={e => update('backendLocked', e.target.checked)}
                 className="rounded accent-primary"
               />
@@ -112,6 +155,7 @@ function SettingsPage() {
                 key={lang}
                 variant={cfg.language === lang ? 'default' : 'outline'}
                 size="sm"
+                disabled={loading}
                 onClick={() => update('language', lang)}
               >
                 {lang === 'zh' ? '中文' : 'English'}
@@ -121,7 +165,7 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* 主题 — 侧栏已有切换，此处说明 */}
+      {/* 主题 */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t.settings.theme}</CardTitle>
@@ -133,6 +177,7 @@ function SettingsPage() {
                 key={th}
                 variant={cfg.theme === th ? 'default' : 'outline'}
                 size="sm"
+                disabled={loading}
                 onClick={() => update('theme', th)}
               >
                 {th === 'light' ? '浅色' : '深色'}
@@ -145,8 +190,12 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button onClick={handleSave}>
-        {saved ? '已保存' : t.settings.save}
+      <Button
+        onClick={handleSave}
+        disabled={loading || saveState === 'saving'}
+        variant={saveState === 'error' ? 'outline' : 'default'}
+      >
+        {saveLabel}
       </Button>
     </div>
   )

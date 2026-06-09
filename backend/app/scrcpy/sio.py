@@ -48,7 +48,7 @@ def register_scrcpy_namespace(sio: socketio.AsyncServer) -> None:
     """
     ns = ScrcpyNamespace("/scrcpy")
     sio.register_namespace(ns)
-    logger.info("scrcpy Socket.IO namespace /scrcpy registered")
+    logger.info("scrcpy Socket.IO 命名空间 /scrcpy 已注册")
 
 
 class ScrcpyNamespace(socketio.AsyncNamespace):
@@ -56,13 +56,13 @@ class ScrcpyNamespace(socketio.AsyncNamespace):
 
     async def on_connect(self, sid: str, environ: dict, auth: Optional[dict] = None) -> None:
         if not sio_auth_ok(environ):
-            logger.warning("scrcpy: rejected unauthenticated connect sid=%s", sid)
+            logger.warning("scrcpy: 已拒绝未鉴权连接 sid=%s", sid)
             raise ConnectionRefusedError("authentication failed")
-        logger.info("scrcpy: client connected sid=%s", sid)
+        logger.info("scrcpy: 客户端已连接 sid=%s", sid)
 
     async def on_disconnect(self, sid: str) -> None:
         await _stop_stream(sid)
-        logger.info("scrcpy: client disconnected sid=%s", sid)
+        logger.info("scrcpy: 客户端已断开 sid=%s", sid)
 
     async def on_start(self, sid: str, data: dict) -> None:
         """client → server: 开始推流指定设备。
@@ -85,12 +85,12 @@ class ScrcpyNamespace(socketio.AsyncNamespace):
             name=f"scrcpy-{sid}",
         )
         _tasks[sid] = task
-        logger.info("scrcpy: stream started sid=%s serial=%s", sid, serial)
+        logger.info("scrcpy: 推流已启动 sid=%s serial=%s", sid, serial)
 
     async def on_stop(self, sid: str, data: dict) -> None:
         """client → server: 停止推流。"""
         await _stop_stream(sid)
-        logger.info("scrcpy: stream stopped by client sid=%s", sid)
+        logger.info("scrcpy: 推流已被客户端停止 sid=%s", sid)
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ async def _run_stream(ns: ScrcpyNamespace, sid: str, streamer: ScrcpyStreamer) -
                     to=sid,
                 )
     except ScrcpyServerMissingError as exc:
-        logger.warning("scrcpy: server JAR missing, notifying client: %s", exc)
+        logger.warning("scrcpy: server JAR 缺失，通知客户端降级: %s", exc)
         await ns.emit(
             "error",
             {

@@ -64,15 +64,30 @@ export function DeviceSidebar() {
   const { devices } = useDevice()
 
   return (
-    <div className="w-52 border-r border-border/60 bg-sidebar flex flex-col shadow-shell-sidebar">
-      <div className="px-4 py-3 border-b border-border/40">
-        <span className="font-serif text-sm font-semibold text-primary">
+    <div className="w-52 border-r border-border/60 bg-sidebar flex flex-col shadow-shell-sidebar shrink-0">
+      <div className="px-4 py-3 border-b border-border/40 flex items-center gap-2">
+        <span className="font-serif text-sm font-semibold text-primary flex-1">
           {t.device.title}
         </span>
+        {/* 在线设备数角标 */}
+        {devices.length > 0 && (
+          <span className="text-[10px] tabular-nums font-mono text-muted-foreground">
+            {devices.filter(d => d.status === 'online').length}/{devices.length}
+          </span>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {devices.length === 0 ? (
-          <p className="text-xs text-muted-foreground px-2 py-3">{t.device.noDevice}</p>
+          /* 空态：居中图标 + 提示文字 */
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground/50">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="12" y1="18" x2="12" y2="18.01" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            <p className="text-xs text-muted-foreground leading-snug px-2">{t.device.noDevice}</p>
+          </div>
         ) : (
           devices.map(d => <DeviceCard key={d.id} device={d} />)
         )}
