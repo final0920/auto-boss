@@ -6,7 +6,35 @@ import { Badge, Card, CardContent } from '../components/ui'
 import { InboxPanel } from '../components/InboxPanel'
 import type { HrMessage } from '../components/InboxPanel'
 import { apiGet, apiPost } from '../api'
-import { openSse } from '../lib/sse'
+
+// 后端 /messages/inbox 返回的会话+最新消息结构
+interface InboxThread {
+  application_id: string
+  job_id: string
+  taken_over: boolean
+  last_message: {
+    id: string
+    application_id: string
+    role: string
+    text: string
+    ts: string
+  } | null
+}
+
+// 将后端 InboxThread 转换为 InboxPanel 期望的 HrMessage 形状
+function threadToMessage(thread: InboxThread): HrMessage {
+  return {
+    id: thread.last_message?.id ?? thread.application_id,
+    company: thread.job_id,
+    hrName: '',
+    content: thread.last_message?.text ?? '',
+    receivedAt: thread.last_message?.ts ?? '',
+    // 未读判断：最新消息来自 hr 则视为未读
+    read: thread.last_message ? thread.last_message.role !== 'hr' : true,
+    takenOver: thread.taken_over,
+    applicationId: thread.application_id,
+  }
+}
 
 function InboxPage() {
   const { t } = useI18n()
@@ -16,15 +44,15 @@ function InboxPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 初始加载收件箱
+  // 初始加载收件箱，接口改为 /messages/inbox
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    apiGet<HrMessage[]>('/inbox')
+    apiGet<InboxThread[]>('/messages/inbox')
       .then(data => {
-        if (!cancelled) setMessages(data)
+        if (!cancelled) setMessages(data.map(threadToMessage))
       })
       .catch(() => {
         if (!cancelled) setError('加载消息失败，请稍后重试')
@@ -36,23 +64,14 @@ function InboxPage() {
     return () => { cancelled = true }
   }, [])
 
-  // SSE 实时推送新消息
+  // 轮询刷新收件箱（后端暂无 SSE /events/inbox，改为每 5s 拉取 /messages/inbox）
   useEffect(() => {
-    const cleanup = openSse('/api/events/inbox', e => {
-      try {
-        const msg = JSON.parse(e.data) as HrMessage
-        setMessages(prev => {
-          const idx = prev.findIndex(m => m.id === msg.id)
-          if (idx === -1) return [msg, ...prev]
-          const next = [...prev]
-          next[idx] = msg
-          return next
-        })
-      } catch {
-        // 忽略格式异常的推送
-      }
-    })
-    return cleanup
+    const timer = setInterval(() => {
+      apiGet<InboxThread[]>('/messages/inbox')
+        .then(data => setMessages(data.map(threadToMessage)))
+        .catch(() => { /* 非致命：轮询失败忽略 */ })
+    }, 5000)
+    return () => clearInterval(timer)
   }, [])
 
   const unreadCount = messages.filter(m => !m.read).length
@@ -60,7 +79,7 @@ function InboxPage() {
   // 接管对话：切换设备为手动模式，跳转镜像页
   const handleTakeover = async (msg: HrMessage) => {
     setMessages(prev =>
-      prev.map(m => m.id === msg.id ? { ...m, takenOver: true, read: true } : m),
+      prev.map(m => m.applicationId === msg.applicationId ? { ...m, takenOver: true, read: true } : m),
     )
     if (activeDevice) {
       setDeviceMode(activeDevice.id, 'MANUAL')
@@ -73,11 +92,12 @@ function InboxPage() {
     navigate({ to: '/screen' })
   }
 
-  // 标记已读
+  // 标记已读：id 用 last_message.id（即 HrMessage.id）
   const markRead = async (id: string) => {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m))
     try {
-      await apiPost(`/inbox/${id}/read`)
+      // 路径改为 /messages/{id}/read
+      await apiPost(`/messages/${id}/read`)
     } catch {
       // 非致命：已读状态只影响 badge 计数
     }

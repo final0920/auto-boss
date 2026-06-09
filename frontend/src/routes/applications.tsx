@@ -5,7 +5,6 @@ import { ApplicationBoard, PendingConfirmQueue } from '../components/Application
 import type { Application, AppStatus } from '../components/ApplicationBoard'
 import { Card, CardContent } from '../components/ui'
 import { apiGet, apiPost } from '../api'
-import { openSse } from '../lib/sse'
 
 function ApplicationsPage() {
   const { t } = useI18n()
@@ -33,37 +32,32 @@ function ApplicationsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // SSE 实时推送：后端推送 application 状态变更
+  // 轮询刷新：后端无 SSE applications 端点，改为每 5s 拉取一次
   useEffect(() => {
-    const cleanup = openSse('/api/events/applications', e => {
-      try {
-        const updated = JSON.parse(e.data) as Application
-        setApps(prev => {
-          const idx = prev.findIndex(a => a.id === updated.id)
-          if (idx === -1) return [...prev, updated]
-          const next = [...prev]
-          next[idx] = updated
-          return next
+    const timer = setInterval(() => {
+      apiGet<Application[]>('/applications')
+        .then(data => {
+          setApps(data)
         })
-      } catch {
-        // 忽略格式异常的推送
-      }
-    })
-    return cleanup
+        .catch(() => {
+          // 轮询失败不影响已有数据显示
+        })
+    }, 5000)
+    return () => clearInterval(timer)
   }, [])
 
-  // 人工确认已发送
+  // 人工确认已发送：路径改为 /confirm，body { sent: true }
   const confirmSent = async (id: string) => {
     setApps(prev => prev.map(a => a.id === id ? { ...a, status: 'SENT' as AppStatus } : a))
     try {
-      await apiPost(`/applications/${id}/confirm-sent`)
+      await apiPost(`/applications/${id}/confirm`, { sent: true })
     } catch {
       // 失败时回滚
       setApps(prev => prev.map(a => a.id === id ? { ...a, status: 'SENDING' as AppStatus } : a))
     }
   }
 
-  // 人工确认未发送
+  // 人工确认未发送：路径改为 /confirm，body { sent: false }
   const confirmNotSent = async (id: string) => {
     setApps(prev =>
       prev.map(a =>
@@ -71,7 +65,7 @@ function ApplicationsPage() {
       ),
     )
     try {
-      await apiPost(`/applications/${id}/confirm-not-sent`)
+      await apiPost(`/applications/${id}/confirm`, { sent: false })
     } catch {
       setApps(prev => prev.map(a => a.id === id ? { ...a, status: 'SENDING' as AppStatus, failReason: undefined } : a))
     }

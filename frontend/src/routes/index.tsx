@@ -45,7 +45,8 @@ function DeviceCard({ device }: { device: Device }) {
     const next = device.mode !== 'MANUAL' ? 'MANUAL' : 'AUTO'
     setDeviceMode(device.id, next)
     try {
-      await apiPost(`/devices/${device.id}/mode`, { mode: next })
+      // 后端路径为 /devices/mode，device_id 走 body
+      await apiPost('/devices/mode', { device_id: device.id, mode: next })
     } catch {
       // 失败时回滚
       setDeviceMode(device.id, device.mode)

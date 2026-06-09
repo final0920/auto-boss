@@ -30,6 +30,34 @@ async def get_job(job_id: int, db: Session = Depends(get_db)) -> dict:
     return _job_dict(job)
 
 
+@router.post("/fetch", dependencies=[Depends(require_auth)])
+async def trigger_fetch() -> dict:
+    """触发岗位抓取（stub）。
+
+    TODO 真机阶段：经 device_mode 锁调用 pipeline.collector 抓取当前列表页岗位。
+    当前返回占位，便于前端按钮联调。
+    """
+    return {"triggered": True, "note": "stub — 真机阶段接 pipeline.collector"}
+
+
+@router.post("/{job_id}/blacklist", dependencies=[Depends(require_auth)])
+async def set_blacklist(job_id: int, body: dict) -> dict:
+    """加入/移出黑名单（stub）。
+
+    TODO 真机阶段：持久化（需 Job.blacklisted 字段 + 迁移），筛选时跳过。
+    """
+    return {"id": job_id, "blacklisted": bool(body.get("blacklisted", True))}
+
+
+@router.post("/{job_id}/pin", dependencies=[Depends(require_auth)])
+async def set_pin(job_id: int, body: dict) -> dict:
+    """置顶/取消置顶（stub）。
+
+    TODO 真机阶段：持久化（需 Job.pinned 字段 + 迁移）。
+    """
+    return {"id": job_id, "pinned": bool(body.get("pinned", True))}
+
+
 def _job_dict(j: Job) -> dict:
     return {
         "id": j.id,

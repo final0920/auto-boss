@@ -14,12 +14,33 @@ interface LogEntry {
   source?: string
 }
 
+// 后端 /logs/quota 返回的配额快照字段
+interface QuotaSnapshot {
+  vision_backend: number
+  planner: number
+  inbox_watcher: number
+  daily_budget: number
+  fused: boolean
+}
+
+// 内部展示用结构，保持与原 VlmCost 命名一致方便渲染复用
 interface VlmCost {
   visionBackend: number
   planner: number
   inboxWatcher: number
   dailyBudget: number
   fused: boolean
+}
+
+// 将后端 quota 快照映射为前端展示结构
+function quotaToVlm(q: QuotaSnapshot): VlmCost {
+  return {
+    visionBackend: q.vision_backend,
+    planner: q.planner,
+    inboxWatcher: q.inbox_watcher,
+    dailyBudget: q.daily_budget,
+    fused: q.fused,
+  }
 }
 
 function CostRow({ label, used, total }: { label: string; used: number; total: number }) {
@@ -55,16 +76,16 @@ function LogsPage() {
   const [vlmError, setVlmError] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
 
-  // 初始加载 VLM 成本
+  // 初始加载配额，接口改为 /logs/quota
   useEffect(() => {
-    apiGet<VlmCost>('/logs/vlm-cost')
-      .then(setVlm)
+    apiGet<QuotaSnapshot>('/logs/quota')
+      .then(q => setVlm(quotaToVlm(q)))
       .catch(() => setVlmError(true))
   }, [])
 
-  // SSE 日志流
+  // SSE 日志流：路径改为 /api/logs/stream
   useEffect(() => {
-    const cleanup = openSse('/api/events/logs', e => {
+    const cleanup = openSse('/api/logs/stream', e => {
       try {
         const entry = JSON.parse(e.data) as LogEntry
         setLogs(prev => [...prev.slice(-500), entry])
@@ -75,18 +96,19 @@ function LogsPage() {
     return cleanup
   }, [])
 
-  // SSE VLM 成本实时更新
+  // 轮询配额：后端无 SSE vlm-cost 端点，改为每 5s 拉取一次
   useEffect(() => {
-    const cleanup = openSse('/api/events/vlm-cost', e => {
-      try {
-        const cost = JSON.parse(e.data) as VlmCost
-        setVlm(cost)
-        setVlmError(false)
-      } catch {
-        // 忽略格式异常
-      }
-    })
-    return cleanup
+    const timer = setInterval(() => {
+      apiGet<QuotaSnapshot>('/logs/quota')
+        .then(q => {
+          setVlm(quotaToVlm(q))
+          setVlmError(false)
+        })
+        .catch(() => {
+          // 轮询失败不重置已有数据，只在初始失败时显示错误态
+        })
+    }, 5000)
+    return () => clearInterval(timer)
   }, [])
 
   // 新日志时自动滚到底部

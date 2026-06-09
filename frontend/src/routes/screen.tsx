@@ -16,7 +16,8 @@ function ScreenPage() {
     async (x: number, y: number) => {
       if (!activeDevice) return
       try {
-        await apiPost(`/devices/${activeDevice.id}/control/tap`, { x, y })
+        // 后端 /control/tap 需 {serial,x,y}；x,y 为归一化坐标，真机阶段按屏幕尺寸转像素
+        await apiPost('/control/tap', { serial: activeDevice.serial, x, y })
       } catch {
         // 非致命：tap 失败不影响界面
       }
@@ -29,7 +30,7 @@ function ScreenPage() {
     if (!activeDevice) return
     setDeviceMode(activeDevice.id, 'MANUAL')
     try {
-      await apiPost(`/devices/${activeDevice.id}/mode`, { mode: 'MANUAL' })
+      await apiPost('/devices/mode', { mode: 'MANUAL' })
     } catch {
       // 乐观更新已生效，后端失败忽略
     }
@@ -70,7 +71,7 @@ function ScreenPage() {
 
       {/* 视频画面：interactive=false 时组件内部显示遮罩提示 */}
       <ScrcpyPlayer
-        deviceId={activeDevice.id}
+        deviceId={activeDevice.serial}
         interactive={isManual}
         onTap={isManual ? handleTap : undefined}
       />

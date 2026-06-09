@@ -16,7 +16,7 @@ function TerminalPage() {
     if (!activeDevice) return
     setDeviceMode(activeDevice.id, 'MANUAL')
     try {
-      await apiPost(`/devices/${activeDevice.id}/mode`, { mode: 'MANUAL' })
+      await apiPost('/devices/mode', { mode: 'MANUAL' })
     } catch {
       // 乐观更新已生效，后端失败忽略
     }
@@ -50,7 +50,7 @@ function TerminalPage() {
       ) : (
         /* flex-1 让终端填满剩余高度 */
         <div className="flex-1 min-h-0">
-          <TerminalPanel deviceId={activeDevice.id} />
+          <TerminalPanel deviceId={activeDevice.serial} />
         </div>
       )}
     </div>

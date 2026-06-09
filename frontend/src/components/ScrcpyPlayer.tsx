@@ -19,7 +19,7 @@ function useScreenshotPolling(deviceId: string, active: boolean) {
     let alive = true
     ;(async () => {
       while (alive) {
-        setUrl(`/api/devices/${deviceId}/screenshot?t=${Date.now()}`)
+        setUrl(`/api/media/screenshot/${deviceId}?t=${Date.now()}`)
         await new Promise(r => setTimeout(r, 1000))
       }
     })()
