@@ -2,10 +2,39 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState, useCallback } from 'react'
 import { useDevice } from '../lib/device-context'
 import { useI18n } from '../lib/i18n'
-import type { Device } from '../lib/device-context'
+import type { Device, DeviceMode } from '../lib/device-context'
 import { Button, Card, CardHeader, CardTitle, CardContent, Badge } from '../components/ui'
 import { cn } from '../lib/utils'
 import { apiGet, apiPost } from '../api'
+
+// 后端 /devices/usb 返回的原始设备结构（DeviceInfo）
+interface RawDevice {
+  serial: string
+  state: string
+  transport: string
+  model: string
+  online: boolean
+}
+
+// 后端 /logs/quota 返回结构
+interface QuotaResp {
+  apply_count: number
+  daily_apply_limit: number
+}
+
+// 后端 DeviceInfo → 前端 Device 适配：补 id(用 serial)、state→status 映射、填充全局模式与配额
+function toDevice(r: RawDevice, mode: DeviceMode, applied: number, limit: number): Device {
+  return {
+    id: r.serial,
+    serial: r.serial,
+    model: r.model || r.serial,
+    status: r.online ? 'online' : r.state === 'unauthorized' ? 'unauthorized' : 'offline',
+    mode,
+    backend: 'auto',
+    todayApplied: applied,
+    dailyQuota: limit,
+  }
+}
 
 function StatusDot({ status }: { status: Device['status'] }) {
   const cls = {
@@ -85,7 +114,7 @@ function DeviceCard({ device }: { device: Device }) {
         <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-4">
           <div
             className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${Math.min(100, (device.todayApplied / device.dailyQuota) * 100)}%` }}
+            style={{ width: `${device.dailyQuota > 0 ? Math.min(100, (device.todayApplied / device.dailyQuota) * 100) : 0}%` }}
           />
         </div>
 
@@ -120,9 +149,17 @@ function IndexPage() {
     setLoading(true)
     setError(null)
 
-    apiGet<Device[]>('/devices')
-      .then(data => {
-        if (!cancelled) setDevices(data)
+    // 设备列表用 /devices/usb(仅在线真机，排除模拟器)；并行拉全局模式与配额填充卡片
+    Promise.all([
+      apiGet<RawDevice[]>('/devices/usb'),
+      apiGet<{ mode: DeviceMode }>('/devices/mode').catch(() => ({ mode: 'AUTO' as DeviceMode })),
+      apiGet<QuotaResp>('/logs/quota').catch(() => null),
+    ])
+      .then(([raws, modeResp, quota]) => {
+        if (cancelled) return
+        const applied = quota?.apply_count ?? 0
+        const limit = quota?.daily_apply_limit ?? 0
+        setDevices(raws.map(r => toDevice(r, modeResp.mode, applied, limit)))
       })
       .catch(() => {
         if (!cancelled) setError('无法连接到后端，请确认服务已启动')

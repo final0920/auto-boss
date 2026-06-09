@@ -32,15 +32,17 @@ function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // 从后端加载设置
+  // 加载模型只读信息（model/base_url 来自 .env，经后端 /config/model-info 暴露，不含 Key）
   useEffect(() => {
     let cancelled = false
-    apiGet<SettingsState>('/config/settings')
+    apiGet<{ model: string; base_url: string; reasoning: string }>('/config/model-info')
       .then(data => {
-        if (!cancelled) setCfg(data)
+        if (!cancelled) {
+          setCfg(prev => ({ ...prev, modelName: data.model, modelBaseUrl: data.base_url }))
+        }
       })
       .catch(() => {
-        // 加载失败：保留 fallback，允许用户查看并保存
+        // 加载失败：保留 fallback 占位，不阻塞其余设置项
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

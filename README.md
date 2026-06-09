@@ -20,7 +20,7 @@
 cd backend
 uv sync --extra dev          # 安装依赖
 cp .env.example .env         # 填入 GPT_API_KEY
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:asgi_app --reload --host 127.0.0.1 --port 8000
 uv run pytest                # 单元测试
 ```
 

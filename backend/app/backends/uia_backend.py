@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+import xml.etree.ElementTree as ET
 from typing import Optional
 
 from app.backends.base import Action, ControlBackend, Coord, PageState, UINode
@@ -143,31 +144,42 @@ class UiaBackend(ControlBackend):
             backend_name=self.name,
         )
 
+    # 提取 bounds="[l,t][r,b]"
+    _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+
     def _parse_dump(self, dump: str) -> list[UINode]:
-        """将 XML dump 解析为 UINode 列表（简化版，基于属性提取）。"""
+        """将控件树 XML dump 解析为 UINode 列表。
+
+        用 XML 解析而非顺序敏感的正则：真机 dump 的属性顺序为
+        index,text,resource-id,class,package,content-desc,...,bounds，
+        与按固定顺序提取的旧正则不一致会导致 0 命中。XML 解析与属性
+        顺序无关，并自动处理 &lt;/&amp; 等转义。
+        注：dump 含 encoding 声明，str 直接传 ET.fromstring 会抛
+        ValueError，故先 encode 为 bytes。
+        """
         nodes: list[UINode] = []
-        # uiautomator2 dump 返回 XML 字符串，直接用 re 提取节点属性
-        pattern = re.compile(
-            r'<node[^>]+resource-id="(?P<rid>[^"]*)"[^>]*'
-            r'text="(?P<text>[^"]*)"[^>]*'
-            r'content-desc="(?P<desc>[^"]*)"[^>]*'
-            r'class="(?P<cls>[^"]*)"[^>]*'
-            r'package="(?P<pkg>[^"]*)"[^>]*'
-            r'clickable="(?P<click>[^"]*)"[^>]*'
-            r'enabled="(?P<enabled>[^"]*)"[^>]*'
-            r'bounds="\[(?P<l>\d+),(?P<t>\d+)\]\[(?P<r>\d+),(?P<b>\d+)\]"',
-        )
-        for m in pattern.finditer(dump):
+        try:
+            root = ET.fromstring(dump.encode("utf-8"))
+        except (ET.ParseError, ValueError) as exc:
+            logger.warning("控件树 XML 解析失败: %s", exc)
+            return nodes
+
+        for el in root.iter("node"):
+            a = el.attrib
+            m = self._BOUNDS_RE.match(a.get("bounds", ""))
+            if m:
+                left, top, right, bottom = (int(m.group(i)) for i in range(1, 5))
+            else:
+                left = top = right = bottom = 0
             nodes.append(UINode(
-                resource_id=m.group("rid"),
-                text=m.group("text"),
-                content_desc=m.group("desc"),
-                class_name=m.group("cls"),
-                package=m.group("pkg"),
-                clickable=m.group("click") == "true",
-                enabled=m.group("enabled") == "true",
-                bounds=(int(m.group("l")), int(m.group("t")),
-                        int(m.group("r")), int(m.group("b"))),
+                resource_id=a.get("resource-id", ""),
+                text=a.get("text", ""),
+                content_desc=a.get("content-desc", ""),
+                class_name=a.get("class", ""),
+                package=a.get("package", ""),
+                clickable=a.get("clickable") == "true",
+                enabled=a.get("enabled", "true") == "true",
+                bounds=(left, top, right, bottom),
             ))
         return nodes
 

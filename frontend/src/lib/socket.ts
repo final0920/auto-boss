@@ -7,10 +7,11 @@ let _socket: Socket | null = null
 export function getSocket(): Socket {
   if (_socket && _socket.connected) return _socket
 
-  _socket = io('/', {
+  // scrcpy 视频流走 /scrcpy 命名空间；token 放 query(后端 sio_auth_ok 从 QUERY_STRING 读)
+  _socket = io('/scrcpy', {
     path: '/socket.io',
     transports: ['websocket'],
-    auth: { token: getToken() },
+    query: { token: getToken() },
     autoConnect: false,
   })
 

@@ -7,11 +7,12 @@ export interface Job {
   title: string
   company: string
   salary: string
-  score: number
-  reason: string
-  tags: string[]
-  blacklisted: boolean
-  pinned: boolean
+  area: string
+  score: number | null
+  // screener 命中理由（后端由 JSON 字符串解析为数组）
+  reasons: string[]
+  blacklisted?: boolean
+  pinned?: boolean
 }
 
 export function ScoreBadge({ score }: { score: number }) {
@@ -55,21 +56,22 @@ export function JobCard({ job, onBlacklist, onPin }: JobCardProps) {
               </span>
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {job.company} · {job.salary}
+              {job.company} · {job.salary}{job.area ? ` · ${job.area}` : ''}
             </div>
           </div>
-          <ScoreBadge score={job.score} />
+          {job.score != null && <ScoreBadge score={job.score} />}
         </div>
 
-        <p className="text-xs text-muted-foreground leading-relaxed">{job.reason}</p>
-
-        <div className="flex flex-wrap gap-1">
-          {job.tags.map(tag => (
-            <Badge key={tag} variant="outline" className="text-xs px-2 py-0.5">
-              {tag}
-            </Badge>
-          ))}
-        </div>
+        {/* screener 命中理由逐条作为标签展示；后端可能为空数组 */}
+        {(job.reasons ?? []).length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {(job.reasons ?? []).map((reason, i) => (
+              <Badge key={i} variant="outline" className="text-xs px-2 py-0.5">
+                {reason}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {(onPin || onBlacklist) && (
           <div className="flex gap-2 pt-1">

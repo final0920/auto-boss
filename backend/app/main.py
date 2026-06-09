@@ -32,7 +32,10 @@ logger = logging.getLogger(__name__)
 
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[],  # Origin 校验由 sio_auth_ok 处理
+    # transport 层放行（含经 vite 代理的跨端口 Origin）；真正的 Origin/token 校验
+    # 在 connect 事件的 sio_auth_ok 中完成。空列表会在握手层直接 403，sio_auth_ok
+    # 根本跑不到。localhost-bind + sio_auth_ok(Origin+token) 已是纵深防御。
+    cors_allowed_origins="*",
     logger=False,
     engineio_logger=False,
 )

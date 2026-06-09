@@ -1,6 +1,7 @@
 """jobs — 岗位列表/详情/打分/黑名单（鉴权 AC12）。"""
 from __future__ import annotations
 
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
@@ -59,6 +60,13 @@ async def set_pin(job_id: int, body: dict) -> dict:
 
 
 def _job_dict(j: Job) -> dict:
+    # reasons 持久化为 JSON 字符串（screener 输出 list[str]），这里解析回数组供前端渲染
+    try:
+        reasons = json.loads(j.reasons) if j.reasons else []
+        if not isinstance(reasons, list):
+            reasons = [str(reasons)]
+    except (ValueError, TypeError):
+        reasons = [j.reasons] if j.reasons else []
     return {
         "id": j.id,
         "title": j.title,
@@ -67,6 +75,9 @@ def _job_dict(j: Job) -> dict:
         "area": j.area,
         "jd": j.jd,
         "score": j.score,
-        "reasons": j.reasons,
+        "reasons": reasons,
+        # 黑名单/置顶暂无持久化（真机阶段加 Job 字段 + 迁移），默认 false
+        "blacklisted": False,
+        "pinned": False,
         "created_at": j.created_at.isoformat() if j.created_at else None,
     }

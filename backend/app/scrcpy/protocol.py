@@ -3,8 +3,8 @@
 参考 scrcpy 源码 server/src/main/java/com/genymobile/scrcpy/video/VideoEncoder.java
 以及 AutoGLM-GUI scrcpy_protocol.py。
 
-帧格式（scrcpy ≥2.0，video-only 模式）：
-  连接后服务端先发送 device_name(64 bytes) + width(2) + height(2)，共 68 字节。
+帧格式（scrcpy ≥3.x，video-only 模式）：
+  连接后服务端先发送 device_name(64) + codec_id(4) + width(4) + height(4)，共 76 字节。
   之后每帧：
     pts       8 bytes  big-endian uint64（微秒，可能含 NO_PTS 标志）
     size      4 bytes  big-endian uint32（NAL 数据长度）
@@ -20,10 +20,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 # scrcpy 连接握手头大小
-HANDSHAKE_SIZE = 68  # device_name(64) + width(2) + height(2)
+HANDSHAKE_SIZE = 76  # device_name(64) + codec_id(4) + width(4) + height(4)
 
-# NO_PTS 标志（bit63）
+# scrcpy frame meta 的 pts 高位标志：bit63=CONFIG(无 pts)，bit62=KEY_FRAME
 _NO_PTS_FLAG = 1 << 63
+_KEY_FRAME_FLAG = 1 << 62
+_PTS_MASK = (1 << 62) - 1   # 低 62 位为真实 pts(微秒)
 
 
 @dataclass
@@ -31,6 +33,7 @@ class DeviceInfo:
     device_name: str
     width: int
     height: int
+    codec: str = "h264"
 
 
 @dataclass
@@ -40,14 +43,19 @@ class VideoFrame:
 
 
 def parse_handshake(buf: bytes) -> DeviceInfo:
-    """解析 68 字节握手头。"""
+    """解析 76 字节握手头：device_name(64) + codec_id(4) + width(4) + height(4)。
+
+    scrcpy ≥3.x 的 video header 紧跟 device meta：codec_id 为 4 字节 ASCII(如 'h264')，
+    width/height 各 4 字节 big-endian。旧实现按 name(64)+w(2)+h(2)=68 解析，会把
+    codec_id 的 'h2'/'64' 误读成尺寸(26674x13876)，并导致后续帧流错位。
+    """
     if len(buf) < HANDSHAKE_SIZE:
         raise ValueError(f"握手数据不足: {len(buf)} < {HANDSHAKE_SIZE}")
-    name_raw = buf[:64]
-    name = name_raw.rstrip(b"\x00").decode("utf-8", errors="replace")
-    (width,) = struct.unpack_from(">H", buf, 64)
-    (height,) = struct.unpack_from(">H", buf, 66)
-    return DeviceInfo(device_name=name, width=width, height=height)
+    name = buf[:64].rstrip(b"\x00").decode("utf-8", errors="replace")
+    codec = buf[64:68].rstrip(b"\x00").decode("ascii", errors="replace")
+    (width,) = struct.unpack_from(">I", buf, 68)
+    (height,) = struct.unpack_from(">I", buf, 72)
+    return DeviceInfo(device_name=name, width=width, height=height, codec=codec)
 
 
 def parse_frame_header(buf: bytes) -> tuple[Optional[int], int]:
@@ -59,7 +67,8 @@ def parse_frame_header(buf: bytes) -> tuple[Optional[int], int]:
         raise ValueError(f"帧头不足: {len(buf)} < 12")
     (pts_raw,) = struct.unpack_from(">Q", buf, 0)
     (size,) = struct.unpack_from(">I", buf, 8)
-    pts: Optional[int] = None if (pts_raw & _NO_PTS_FLAG) else pts_raw
+    # bit63=config(无 pts)；否则清除 bit63/bit62 标志位取低 62 位真实 pts
+    pts: Optional[int] = None if (pts_raw & _NO_PTS_FLAG) else (pts_raw & _PTS_MASK)
     return pts, size
 
 

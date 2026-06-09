@@ -77,8 +77,11 @@ def list_devices() -> list[DeviceInfo]:
 
 
 def list_usb_devices() -> list[DeviceInfo]:
-    """仅返回 USB 连接的在线设备。"""
-    return [d for d in list_devices() if d.transport == "usb" and d.online]
+    """仅返回 USB 连接的在线真机（排除 emulator- 模拟器）。"""
+    return [
+        d for d in list_devices()
+        if d.transport == "usb" and d.online and not d.serial.startswith("emulator-")
+    ]
 
 
 def connect_usb(serial: Optional[str] = None) -> DeviceInfo:

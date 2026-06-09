@@ -22,6 +22,7 @@ import asyncio
 import logging
 import os
 import socket
+import subprocess
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
@@ -67,7 +68,7 @@ class ScrcpyStreamer:
     def __init__(self, serial: str) -> None:
         self.serial = serial
         self._running = False
-        self._proc: Optional[asyncio.subprocess.Process] = None
+        self._proc: Optional[subprocess.Popen] = None
 
     # ------------------------------------------------------------------
     # JAR 路径解析
@@ -98,51 +99,55 @@ class ScrcpyStreamer:
     # ------------------------------------------------------------------
 
     async def _push_server(self, jar: Path) -> None:
-        """将 scrcpy-server.jar push 到设备临时目录。"""
-        proc = await asyncio.create_subprocess_exec(
-            "adb", "-s", self.serial,
-            "push", str(jar), _DEVICE_SERVER_PATH,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
+        """将 scrcpy-server.jar push 到设备临时目录（同步 subprocess + 线程）。"""
+        def _run() -> "subprocess.CompletedProcess[bytes]":
+            return subprocess.run(
+                ["adb", "-s", self.serial, "push", str(jar), _DEVICE_SERVER_PATH],
+                capture_output=True,
+            )
+        proc = await asyncio.to_thread(_run)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"adb push scrcpy-server 失败: {stderr.decode(errors='replace')}"
+                f"adb push scrcpy-server 失败: {proc.stderr.decode(errors='replace')}"
             )
 
     async def _setup_forward(self) -> None:
-        """建立 adb forward tcp 映射。"""
-        proc = await asyncio.create_subprocess_exec(
-            "adb", "-s", self.serial,
-            "forward", f"tcp:{self.LOCAL_PORT}", "localabstract:scrcpy",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        _, stderr = await proc.communicate()
+        """建立 adb forward tcp 映射（同步 subprocess + 线程）。"""
+        def _run() -> "subprocess.CompletedProcess[bytes]":
+            return subprocess.run(
+                ["adb", "-s", self.serial, "forward",
+                 f"tcp:{self.LOCAL_PORT}", "localabstract:scrcpy"],
+                capture_output=True,
+            )
+        proc = await asyncio.to_thread(_run)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"adb forward 失败: {stderr.decode(errors='replace')}"
+                f"adb forward 失败: {proc.stderr.decode(errors='replace')}"
             )
 
     async def _remove_forward(self) -> None:
-        proc = await asyncio.create_subprocess_exec(
-            "adb", "-s", self.serial,
-            "forward", "--remove", f"tcp:{self.LOCAL_PORT}",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        await proc.communicate()
+        def _run() -> None:
+            subprocess.run(
+                ["adb", "-s", self.serial, "forward", "--remove",
+                 f"tcp:{self.LOCAL_PORT}"],
+                capture_output=True,
+            )
+        await asyncio.to_thread(_run)
 
     # ------------------------------------------------------------------
     # 启动 scrcpy-server 进程
     # ------------------------------------------------------------------
 
     async def _launch_server(self) -> None:
-        """在设备上以 app_process 运行 scrcpy-server。"""
-        # scrcpy-server ≥2.0 参数格式（key=value）
+        """在设备上以 app_process 运行 scrcpy-server（同步 Popen + 线程）。
+
+        Windows 的 SelectorEventLoop 不支持 asyncio 子进程
+        （create_subprocess_exec 抛 NotImplementedError），故用同步 Popen 起进程，
+        socket 读仍走 asyncio（Selector 支持 sock_recv）。
+        """
+        # scrcpy-server ≥2.0：version 必须是紧跟 Server 的第一个裸位置参数，
+        # 其余为 key=value 选项。写成 version=x 会导致版本校验失败、server 立即退出。
         server_args = " ".join([
-            f"version={self.SERVER_VERSION}",
             "tunnel_forward=true",
             f"video_codec={self.VIDEO_CODEC}",
             f"max_size={self.MAX_SIZE}",
@@ -161,13 +166,14 @@ class ScrcpyStreamer:
             f"CLASSPATH={_DEVICE_SERVER_PATH}",
             "app_process", "/",
             "com.genymobile.scrcpy.Server",
+            self.SERVER_VERSION,   # 裸 version 位置参数（不能写成 version=x）
             server_args,
         ]
-        self._proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        def _spawn() -> subprocess.Popen:
+            return subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+        self._proc = await asyncio.to_thread(_spawn)
         logger.info("scrcpy-server 已在 %s 上启动 pid=%s", self.serial, self._proc.pid)
 
     # ------------------------------------------------------------------
@@ -181,7 +187,9 @@ class ScrcpyStreamer:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(("127.0.0.1", self.LOCAL_PORT))
-                sock.setblocking(False)
+                # 阻塞模式 + 读超时：用同步 recv via to_thread，不用 loop.sock_recv
+                # （Windows SelectorEventLoop 的 sock_recv 对该 forward socket 误读 EOF）
+                sock.settimeout(2.0)
                 logger.info("scrcpy socket 已连接（第 %d 次尝试）", i + 1)
                 return sock
             except OSError:
@@ -210,16 +218,19 @@ class ScrcpyStreamer:
         sock: Optional[socket.socket] = None
         try:
             # 跳过 scrcpy 发送的 dummy byte（send_dummy_byte=true）
+            # 用同步 recv + to_thread：Windows SelectorEventLoop 的 loop.sock_recv
+            # 对该 adb-forward socket 会误读 EOF，同步阻塞 recv 正常。
             sock = await self._connect_socket()
-            loop = asyncio.get_running_loop()
-            dummy = await loop.sock_recv(sock, 1)
+            dummy = await asyncio.to_thread(sock.recv, 1)
             if dummy != b"\x00":
                 logger.warning("scrcpy: dummy byte 异常 %r", dummy)
 
             reader = FrameReader()
             while self._running:
                 try:
-                    chunk = await loop.sock_recv(sock, 65536)
+                    chunk = await asyncio.to_thread(sock.recv, 65536)
+                except socket.timeout:
+                    continue  # 读超时（画面静止无新帧），继续轮询 _running
                 except OSError as exc:
                     logger.warning("scrcpy socket 读取错误: %s", exc)
                     break
@@ -240,10 +251,10 @@ class ScrcpyStreamer:
     async def stop(self) -> None:
         """停止 scrcpy-server 进程并清理 forward。"""
         self._running = False
-        if self._proc and self._proc.returncode is None:
+        if self._proc and self._proc.poll() is None:
             try:
                 self._proc.terminate()
-                await asyncio.wait_for(self._proc.wait(), timeout=3.0)
+                await asyncio.to_thread(self._proc.wait, 3.0)
             except Exception as exc:
                 logger.debug("scrcpy 停止出错: %s", exc)
         self._proc = None

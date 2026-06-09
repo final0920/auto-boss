@@ -90,22 +90,26 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
       writer = decoder.writable.getWriter() as WritableStreamDefaultWriter
       if (!disposed) setCodecReady(true)
 
-      let configSent = false  // SPS/PPS 配置包只发一次
-
       const socket = connectSocket()
-      socket.on('video-data', async (raw: ArrayBuffer | Uint8Array) => {
+
+      // 设备握手信息(device_name/width/height)，renderer 自适应，仅记录
+      socket.on('device_info', (info: { device_name: string; width: number; height: number }) => {
+        console.debug('scrcpy device_info', info)
+      })
+
+      // 视频帧：pts===null 为配置帧(SPS/PPS)，其余为编码帧；pts 单位微秒
+      socket.on('frame', async (msg: { pts: number | null; data: ArrayBuffer }) => {
         if (!writer || disposed) return
-        const data = raw instanceof Uint8Array ? raw : new Uint8Array(raw)
+        const data = new Uint8Array(msg.data)
         try {
-          if (!configSent) {
-            // 首帧同时作为 configuration 包（含 SPS/PPS）
+          if (msg.pts === null) {
             await writer.write({ type: 'configuration', data })
-            configSent = true
+            return
           }
           await writer.write({
             type: 'data',
             keyframe: containsH264Keyframe(data),
-            pts: BigInt(Math.round(performance.now() * 1000)),
+            pts: BigInt(msg.pts),
             data,
           })
         } catch {
@@ -113,7 +117,12 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
         }
       })
 
-      socket.emit('join-device', deviceId)
+      // 后端通知降级(scrcpy server JAR 缺失等) → 切截图轮询
+      socket.on('error', (msg: { message?: string; fallback?: string }) => {
+        if (msg?.fallback === 'screenshot_polling') goFallback()
+      })
+
+      socket.emit('start', { serial: deviceId })
     }
 
     init().catch(goFallback)
@@ -121,8 +130,10 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
     return () => {
       disposed = true
       const socket = connectSocket()
-      socket.off('video-data')
-      socket.emit('leave-device', deviceId)
+      socket.off('device_info')
+      socket.off('frame')
+      socket.off('error')
+      socket.emit('stop', {})
       writer?.releaseLock()
       // 清空挂载点中的渲染器 canvas
       if (containerRef.current) containerRef.current.innerHTML = ''

@@ -14,7 +14,7 @@ async def screenshot(serial: str) -> Response:
     """返回 PNG 截图（adb exec-out screencap -p）。"""
     import asyncio
 
-    from app.adb.screencap import screencap_png  # 惰性导入
+    from app.adb.screencap import screencap_png_bytes  # 惰性导入
 
-    png = await asyncio.to_thread(screencap_png, serial)
+    png = await asyncio.to_thread(screencap_png_bytes, serial)
     return Response(content=png, media_type="image/png")
