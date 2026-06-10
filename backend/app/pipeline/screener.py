@@ -101,7 +101,7 @@ def llm_score(state: ScreenerState) -> ScreenerState:
     if not state["passed_hard"]:
         return state
 
-    from app.llm.client import llm_client  # 延迟导入，避免循环
+    from app.llm.client import get_client  # 延迟导入，避免循环
 
     job = state["job"]
     prompt = (
@@ -111,7 +111,7 @@ def llm_score(state: ScreenerState) -> ScreenerState:
         "请以 JSON 格式回答：{{\"score\": <int>, \"reasons\": [<str>, ...]}}"
     )
     try:
-        result = llm_client.chat(
+        result = get_client().chat(
             messages=[{"role": "user", "content": prompt}],
             json_mode=True,
         )

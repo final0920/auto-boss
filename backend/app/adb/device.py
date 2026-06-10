@@ -52,17 +52,26 @@ class AdbDevice:
     def _shell(self, cmd: str, *, timeout: float = 30.0, check: bool = True) -> AdbResult:
         return self._run(["shell", cmd], timeout=timeout, check=check)
 
+    def _shell_su(self, cmd: str, *, timeout: float = 30.0, check: bool = False) -> AdbResult:
+        """以 root(su -c)执行。MIUI 禁止普通 adb 的 input 注入(INJECT_EVENTS)，
+        设备已 root，注入类命令(input tap/swipe/motionevent/keyevent)走 su 绕过。
+
+        注意：必须把 `su -c '<cmd>'` 作为单个 shell 参数传。Windows adb 对
+        ["shell","su","-c",cmd] 多参数形式会拆散，导致 su -c 拿不到完整命令
+        （返回码 0 但实际没执行）。cmd 内不含单引号（input/wm/svc 等均满足）。"""
+        return self._run(["shell", f"su -c '{cmd}'"], timeout=timeout, check=check)
+
     # ------------------------------------------------------------------
     # 触摸 / 点击
     # ------------------------------------------------------------------
 
     def tap(self, x: int, y: int) -> AdbResult:
         """adb shell input tap x y"""
-        return self._shell(f"input tap {x} {y}")
+        return self._shell_su(f"input tap {x} {y}")
 
     def swipe(self, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> AdbResult:
         """adb shell input swipe x1 y1 x2 y2 [duration_ms]"""
-        return self._shell(f"input swipe {x1} {y1} {x2} {y2} {duration_ms}")
+        return self._shell_su(f"input swipe {x1} {y1} {x2} {y2} {duration_ms}")
 
     def swipe_gesture(self, gesture: SwipeGesture) -> AdbResult:
         return self.swipe(
@@ -78,13 +87,13 @@ class AdbDevice:
     # ------------------------------------------------------------------
 
     def motionevent_down(self, x: int, y: int) -> AdbResult:
-        return self._shell(f"input motionevent DOWN {x} {y}")
+        return self._shell_su(f"input motionevent DOWN {x} {y}")
 
     def motionevent_move(self, x: int, y: int) -> AdbResult:
-        return self._shell(f"input motionevent MOVE {x} {y}")
+        return self._shell_su(f"input motionevent MOVE {x} {y}")
 
     def motionevent_up(self, x: int, y: int) -> AdbResult:
-        return self._shell(f"input motionevent UP {x} {y}")
+        return self._shell_su(f"input motionevent UP {x} {y}")
 
     def humanized_tap(self, x: int, y: int, hold_ms: int = 80) -> None:
         """DOWN → 短暂停顿 → UP，比 input tap 更像真实触摸。"""
@@ -116,7 +125,7 @@ class AdbDevice:
 
     def keyevent(self, keycode: int | str) -> AdbResult:
         """adb shell input keyevent <keycode>"""
-        return self._shell(f"input keyevent {keycode}")
+        return self._shell_su(f"input keyevent {keycode}")
 
     def press_back(self) -> AdbResult:
         return self.keyevent(4)  # KEYCODE_BACK
