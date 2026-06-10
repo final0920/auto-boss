@@ -142,3 +142,5 @@ export const getApplications = (status?: string) =>
   apiGet<ApplicationRecord[]>('/applications', status ? { status } : undefined)
 export const confirmApplication = (id: number, sent: boolean) =>
   apiPost(`/applications/${id}/confirm`, { sent })
+export const clearHistory = () =>
+  apiDelete<{ cleared: Record<string, number> }>('/applications/clear')

@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApplicationTable, PendingConfirmQueue } from '../components/ApplicationBoard'
-import { Card, CardContent, Input } from '../components/ui'
+import { Button, Card, CardContent, Input } from '../components/ui'
 import { cn } from '../lib/utils'
-import { getApplications, confirmApplication } from '../api'
+import { getApplications, confirmApplication, clearHistory } from '../api'
 import type { ApplicationRecord } from '../api'
 
 const FILTERS: { key: string; label: string }[] = [
@@ -63,9 +63,22 @@ function ApplicationsPage() {
     return c
   }, [apps])
 
+  const onClear = async () => {
+    if (!window.confirm('确定清空全部投递历史？\n（岗位 / 投递记录 / HR消息 / 日志 / 今日配额计数将被删除，规则配置保留）')) return
+    try {
+      await clearHistory()
+      refresh()
+    } catch {
+      window.alert('清空失败，请确认后端在线')
+    }
+  }
+
   return (
     <div className="p-6 space-y-5">
-      <h1 className="font-serif text-2xl font-semibold">投递历史记录</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-2xl font-semibold">投递历史记录</h1>
+        <Button variant="outline" size="sm" onClick={onClear}>清空历史</Button>
+      </div>
 
       {loading && (
         <Card variant="subtle">

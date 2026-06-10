@@ -70,6 +70,24 @@ async def list_applications(
     return [_app_dict(a, j) for a, j in rows]
 
 
+@router.delete("/clear", dependencies=[Depends(require_auth)])
+async def clear_history(db: Session = Depends(get_db)) -> dict:
+    """清空全部投递历史（application/job/message/run_log/quota），保留规则配置。
+
+    必须注册在 /{app_id} 之前，否则 "clear" 会被当作 app_id 匹配。
+    """
+    from sqlmodel import delete
+
+    from app.models import Job, Message, Quota, RunLog
+
+    counts: dict[str, int] = {}
+    for model in (Message, RunLog, Application, Job, Quota):
+        res = db.exec(delete(model))
+        counts[model.__tablename__] = res.rowcount or 0
+    db.commit()
+    return {"cleared": counts}
+
+
 @router.get("/sending", dependencies=[Depends(require_auth)])
 async def list_sending(db: Session = Depends(get_db)) -> list[dict]:
     """SENDING 待人工确认队列（AC8 崩溃恢复）。"""
