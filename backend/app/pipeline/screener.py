@@ -406,7 +406,7 @@ def apply_screen_result(
         ApplicationStatus.CLAIMED if result.final == "CLAIMED" else ApplicationStatus.FAILED
     )
     app.fail_reason = result.fail_reason
-    app.updated_at = datetime.utcnow()
+    app.updated_at = datetime.now()
     session.add(app)
 
     if result.score > 0:
@@ -414,7 +414,7 @@ def apply_screen_result(
         if job is not None:
             job.score = result.score
             job.reasons = json.dumps(result.reasons, ensure_ascii=False)
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now()
             session.add(job)
 
     session.commit()

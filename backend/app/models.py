@@ -55,8 +55,8 @@ class Job(SQLModel, table=True):
     jd_hash: str = Field(index=True, unique=True)
     score: Optional[float] = None
     reasons: str = ""          # JSON list[str]，screener 输出
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
     # 详情页补全字段（detail_fetched_at 有值代表已抓过详情页）
     salary_min_k: Optional[float] = None
     salary_max_k: Optional[float] = None
@@ -97,8 +97,8 @@ class Application(SQLModel, table=True):
     # --- 时间戳 ---
     sent_at: Optional[datetime] = None
     last_poll_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
     # --- 接管标志（inbox_watcher 置 True） ---
     taken_over: bool = False
@@ -119,7 +119,7 @@ class Message(SQLModel, table=True):
     application_id: int = Field(foreign_key="application.id", index=True)
     role: MessageRole = Field(default=MessageRole.HR)
     text: str
-    ts: datetime = Field(default_factory=datetime.utcnow, index=True)
+    ts: datetime = Field(default_factory=datetime.now, index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ class Config(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     key: str = Field(index=True, unique=True)
     value: str = ""
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.now)
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ class RunLog(SQLModel, table=True):
     __tablename__ = "run_log"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    ts: datetime = Field(default_factory=datetime.utcnow, index=True)
+    ts: datetime = Field(default_factory=datetime.now, index=True)
     level: str = "INFO"         # INFO | WARNING | ERROR
     event: str = ""             # 事件类型，如 "apply" | "paused"
     message: str = ""
@@ -165,4 +165,4 @@ class Quota(SQLModel, table=True):
     # 格式 YYYY-MM-DD
     date: str = Field(index=True, unique=True)
     apply_count: int = 0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.now)

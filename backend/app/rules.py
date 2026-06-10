@@ -74,10 +74,10 @@ def save_rules(session: Session, rules: RulesConfig) -> None:
     value = rules.model_dump_json()
     row = session.exec(select(Config).where(Config.key == _RULES_KEY)).first()
     if row is None:
-        row = Config(key=_RULES_KEY, value=value, updated_at=datetime.utcnow())
+        row = Config(key=_RULES_KEY, value=value, updated_at=datetime.now())
         session.add(row)
     else:
         row.value = value
-        row.updated_at = datetime.utcnow()
+        row.updated_at = datetime.now()
         session.add(row)
     session.commit()

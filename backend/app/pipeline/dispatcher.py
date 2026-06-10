@@ -91,7 +91,7 @@ def mark_dup(application_id: int) -> None:
         if app is None:
             return
         app.status = ApplicationStatus.DUP
-        app.updated_at = datetime.utcnow()
+        app.updated_at = datetime.now()
         session.add(app)
         _log(session, "dup", "已投过（继续沟通），跳过且不计配额", app.id)
         session.commit()
@@ -128,7 +128,7 @@ async def dispatch_one(
 
         # --- 阶段一：写 SENDING ---
         app.status = ApplicationStatus.SENDING
-        app.updated_at = datetime.utcnow()
+        app.updated_at = datetime.now()
         session.add(app)
         session.commit()
 
@@ -141,14 +141,14 @@ async def dispatch_one(
             return "FAILED"
         if ok:
             app.status = ApplicationStatus.SENT
-            app.sent_at = datetime.utcnow()
+            app.sent_at = datetime.now()
             app.greeting = greeting          # 实发招呼语存证（A6）
             _log(session, "apply", "投递成功", app.id)
         else:
             app.status = ApplicationStatus.FAILED
             app.fail_reason = fail_reason or "投递验证失败"
             _log(session, "apply_fail", app.fail_reason, app.id, level="WARNING")
-        app.updated_at = datetime.utcnow()
+        app.updated_at = datetime.now()
         session.add(app)
         session.commit()
         return app.status.value

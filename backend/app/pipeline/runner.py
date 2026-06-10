@@ -147,7 +147,7 @@ class PipelineRunner:
                 return
             app.status = ApplicationStatus.FAILED
             app.fail_reason = reason
-            app.updated_at = datetime.utcnow()
+            app.updated_at = datetime.now()
             session.add(app)
             job = session.get(Job, app.job_id)
             label = f"{job.company}｜{job.title}" if job else f"#{app_id}"
@@ -188,8 +188,8 @@ class PipelineRunner:
                 job.hr_name = fields["hr_name"]
             if fields.get("hr_active"):
                 job.hr_active = fields["hr_active"]
-            job.detail_fetched_at = datetime.utcnow()
-            job.updated_at = datetime.utcnow()
+            job.detail_fetched_at = datetime.now()
+            job.updated_at = datetime.now()
             session.add(job)
             session.commit()
             session.refresh(job)

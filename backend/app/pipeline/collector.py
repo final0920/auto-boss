@@ -92,8 +92,8 @@ def collect_jobs(
                     finance_stage=raw.finance_stage,
                     hr_name=raw.hr_name,
                     hr_active=raw.hr_active,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
                 )
                 session.add(job)
                 session.flush()  # 获取 job.id
@@ -104,8 +104,8 @@ def collect_jobs(
                 account_id=account_id,
                 device_id=device_id,
                 status=ApplicationStatus.PENDING,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
             )
             session.add(app)
             session.flush()

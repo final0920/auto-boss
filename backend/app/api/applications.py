@@ -124,8 +124,8 @@ async def confirm_sending(
     a.status = ApplicationStatus.SENT if sent else ApplicationStatus.FAILED
     a.fail_reason = "" if sent else str(body.get("reason", "manual_confirm_failed"))
     if sent:
-        a.sent_at = datetime.utcnow()
-    a.updated_at = datetime.utcnow()
+        a.sent_at = datetime.now()
+    a.updated_at = datetime.now()
     db.add(a)
     db.commit()
     db.refresh(a)
@@ -139,7 +139,7 @@ async def takeover(app_id: int, db: Session = Depends(get_db)) -> dict:
     if a is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
     a.taken_over = True
-    a.updated_at = datetime.utcnow()
+    a.updated_at = datetime.now()
     db.add(a)
     db.commit()
     db.refresh(a)

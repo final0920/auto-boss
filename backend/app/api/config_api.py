@@ -67,11 +67,11 @@ async def set_config(key: str, body: dict, db: Session = Depends(get_db)) -> dic
     value = str(body.get("value", ""))
     c = db.exec(select(Config).where(Config.key == key)).first()
     if c is None:
-        c = Config(key=key, value=value, updated_at=datetime.utcnow())
+        c = Config(key=key, value=value, updated_at=datetime.now())
         db.add(c)
     else:
         c.value = value
-        c.updated_at = datetime.utcnow()
+        c.updated_at = datetime.now()
         db.add(c)
     db.commit()
     db.refresh(c)

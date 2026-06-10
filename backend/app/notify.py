@@ -65,7 +65,7 @@ def _emit_sse_event(application_id: int) -> None:
         minimal = {"event": "hr_reply", "application_id": application_id}
         with Session(engine) as session:
             log = RunLog(
-                ts=datetime.utcnow(),
+                ts=datetime.now(),
                 level="INFO",
                 event="hr_reply",
                 message=json.dumps(minimal),

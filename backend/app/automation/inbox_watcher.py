@@ -99,7 +99,7 @@ def poll_once(driver: "BossDriver") -> int:
             session.add(Message(
                 application_id=app.id, role=MessageRole.HR, text=last_msg,
             ))
-            app.last_poll_at = datetime.utcnow()
+            app.last_poll_at = datetime.now()
             app.taken_over = False   # 新回复 → 待人工处理（真机回复后前端标记）
             session.add(app)
             _log(session, "inbox_reply",
