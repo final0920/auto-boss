@@ -22,3 +22,7 @@ build/
 *.tsbuildinfo
 *.jar
 .playwright-mcp/
+_rd_*
+*_boss_ui*.xml
+*.db.bak-*
+scrcpy-screen.jpeg

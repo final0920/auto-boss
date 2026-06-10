@@ -108,8 +108,4 @@ async def takeover(app_id: int, db: Session = Depends(get_db)) -> dict:
     db.commit()
     db.refresh(a)
 
-    # 切换到 MANUAL 模式方便人工操控
-    from app.automation.device_mode import DeviceMode, device_mode_manager
-    await device_mode_manager.set_mode(DeviceMode.MANUAL, reason=f"takeover app_id={app_id}")
-
     return _app_dict(a)

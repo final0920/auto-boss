@@ -4,11 +4,13 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.config import settings
 from app.db import get_db
 from app.models import Config
+from app.rules import RulesConfig, load_rules, save_rules
 from app.security.auth import require_auth
 
 router = APIRouter(prefix="/config", tags=["config"])
@@ -32,6 +34,24 @@ async def get_model_info() -> dict:
         "base_url": settings.gpt_base_url,
         "reasoning": settings.gpt_reasoning,
     }
+
+
+@router.get("/rules", dependencies=[Depends(require_auth)])
+async def get_rules(db: Session = Depends(get_db)) -> dict:
+    """返回完整 RulesConfig JSON。注册在 /{key} 之前，防止路由遮蔽。"""
+    rules = load_rules(db)
+    return rules.model_dump()
+
+
+@router.put("/rules", dependencies=[Depends(require_auth)])
+async def set_rules(body: dict, db: Session = Depends(get_db)) -> dict:
+    """全量写入 RulesConfig。body 经 extra='forbid' 校验，未知字段自动 422。"""
+    try:
+        rules = RulesConfig.model_validate(body)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors())
+    save_rules(db, rules)
+    return rules.model_dump()
 
 
 @router.get("/{key}", dependencies=[Depends(require_auth)])

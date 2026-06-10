@@ -28,19 +28,13 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./data/boss_autoapply.db"
 
-    # Rate limits
+    # Rate limits (仅作 RulesConfig 首次缺省填充；运行期以 Config.rules 为权威)
     daily_apply_limit: int = 150
     apply_interval_min: int = 20
     apply_interval_max: int = 90
-    vlm_daily_limit: int = 200
 
     # Pipeline
     score_threshold: int = 80
-
-    # Backend selection
-    default_backend: str = "uia"  # "uia" | "vision"
-    t_ctrl: float = 0.8           # uia 命中率阈值，低于此切 vision
-    t_ocr: float = 0.6            # ocr 命中率阈值
 
     # Inbox watcher poll interval (seconds)
     inbox_poll_min_sec: int = 120

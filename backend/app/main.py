@@ -1,12 +1,11 @@
 """
-FastAPI + python-socketio ASGI 组合入口（AC12/AC14）
+FastAPI + python-socketio ASGI 组合入口
 
 lifespan:
   - 初始化 DB（建表）
   - 启动自检 scan_sending（AC8）
-  - 启动 APScheduler（inbox_watcher / dispatcher 定时任务）
   - 注册 scrcpy Socket.IO 命名空间
-  - shutdown：停止调度器 + 清理 terminal sessions
+  - shutdown：停止调度器
 
 BIND_HOST 由 uvicorn 启动命令读取（见 __main__ 块）。
 无真机也应能 import 启动（设备相关惰性导入）。
@@ -89,15 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:
         logger.warning("scan_sending 出错: %s", exc)
 
-    # 4. APScheduler
-    from app.scheduler import build_scheduler, register_jobs
-    scheduler = build_scheduler()
-    register_jobs(scheduler)
-    scheduler.start()
-    app.state.scheduler = scheduler
-    logger.info("APScheduler 已启动")
-
-    # 5. 注册 scrcpy Socket.IO 命名空间
+    # 4. 注册 scrcpy Socket.IO 命名空间
     try:
         from app.scrcpy.sio import register_scrcpy_namespace
         register_scrcpy_namespace(sio)
@@ -108,19 +99,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # --- shutdown ---
     logger.info("boss-autoapply 后端正在关闭")
-
-    # 停止调度器
-    try:
-        scheduler.shutdown(wait=False)
-    except Exception as exc:
-        logger.debug("调度器关闭出错: %s", exc)
-
-    # 清理所有 terminal sessions
-    try:
-        from app.api.terminal import get_terminal_service
-        await get_terminal_service().close_all()
-    except Exception as exc:
-        logger.debug("terminal close_all 出错: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +133,6 @@ app.add_middleware(
 from app.api import (  # noqa: E402
     applications,
     config_api,
-    control,
     devices,
     jobs,
     logs,
@@ -163,12 +140,10 @@ from app.api import (  # noqa: E402
     messages,
     scheduled,
 )
-from app.api import terminal  # noqa: E402
 
 _API_PREFIX = "/api"
 
 app.include_router(devices.router, prefix=_API_PREFIX)
-app.include_router(control.router, prefix=_API_PREFIX)
 app.include_router(media.router, prefix=_API_PREFIX)
 app.include_router(jobs.router, prefix=_API_PREFIX)
 app.include_router(applications.router, prefix=_API_PREFIX)
@@ -176,18 +151,14 @@ app.include_router(messages.router, prefix=_API_PREFIX)
 app.include_router(config_api.router, prefix=_API_PREFIX)
 app.include_router(scheduled.router, prefix=_API_PREFIX)
 app.include_router(logs.router, prefix=_API_PREFIX)
-app.include_router(terminal.router, prefix=_API_PREFIX)  # WS /api/terminal/ws
 
 
 @app.get("/health", tags=["meta"])
 async def health() -> dict:
     """无鉴权健康检查 — 仅 localhost bind 访问。"""
-    from app.automation.device_mode import device_mode_manager
-
     return {
         "status": "ok",
         "bind_host": settings.bind_host,
-        "device_mode": device_mode_manager.mode.value,
     }
 
 

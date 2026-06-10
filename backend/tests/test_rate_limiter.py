@@ -1,11 +1,11 @@
-"""test_rate_limiter.py — 三路 VLM 共享预算 + 投递优先并发测试。"""
+"""test_rate_limiter.py — 投递配额测试（VLM 路已随精简重构删除）。"""
 
 from __future__ import annotations
 
 import asyncio
 import sys
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -17,7 +17,6 @@ import pytest
 def _make_settings():
     s = MagicMock()
     s.daily_apply_limit = 5
-    s.vlm_daily_limit = 3
     return s
 
 
@@ -27,9 +26,6 @@ def _install_stubs():
         stub = types.ModuleType("app.config")
         stub.settings = _make_settings()
         sys.modules["app.config"] = stub
-    else:
-        import app.config as cfg
-        cfg.settings = _make_settings()
 
     # db stub — engine mock
     if "app.db" not in sys.modules:
@@ -45,7 +41,6 @@ def _install_stubs():
             def __init__(self, **kw):
                 self.date = kw.get("date", "")
                 self.apply_count = kw.get("apply_count", 0)
-                self.vlm_count = kw.get("vlm_count", 0)
 
         stub.Quota = _Quota
         sys.modules["app.models"] = stub
@@ -78,7 +73,7 @@ _store = _InMemoryQuotaStore()
 
 
 def _patch_session(monkeypatch):
-    """Patch sqlmodel.Session to use in-memory store."""
+    """Patch rate_limiter 的同步核心为内存实现。"""
     import app.pipeline.rate_limiter as rl_mod
 
     def _sync_check_apply(daily_limit: int) -> bool:
@@ -90,30 +85,17 @@ def _patch_session(monkeypatch):
         q.apply_count += 1
         return True
 
-    def _sync_check_vlm(consumer, vlm_limit: int) -> bool:
+    def _sync_get_quota(daily_limit: int) -> dict:
         from datetime import date
         day = date.today().isoformat()
         q = _store.get_or_create(day)
-        if q.vlm_count >= vlm_limit:
-            return False
-        q.vlm_count += 1
-        return True
-
-    def _sync_get_quota() -> dict:
-        from datetime import date
-        day = date.today().isoformat()
-        q = _store.get_or_create(day)
-        import app.config as cfg
         return {
             "date": day,
             "apply_count": q.apply_count,
-            "vlm_count": q.vlm_count,
-            "daily_apply_limit": cfg.settings.daily_apply_limit,
-            "vlm_daily_limit": cfg.settings.vlm_daily_limit,
+            "daily_apply_limit": daily_limit,
         }
 
     monkeypatch.setattr(rl_mod, "_sync_check_apply", _sync_check_apply)
-    monkeypatch.setattr(rl_mod, "_sync_check_vlm", _sync_check_vlm)
     monkeypatch.setattr(rl_mod, "_sync_get_quota", _sync_get_quota)
 
 
@@ -136,76 +118,37 @@ def rl(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 投递配额
+# 投递配额（daily_limit 显式传参 — 调用方传 rules.daily_limit）
 # ---------------------------------------------------------------------------
 
 class TestApplyQuota:
     @pytest.mark.anyio
     async def test_allows_up_to_limit(self, rl):
-        import app.config as cfg
-        cfg.settings.daily_apply_limit = 3
-        results = [await rl.check_and_consume_apply() for _ in range(4)]
+        results = [await rl.check_and_consume_apply(daily_limit=3) for _ in range(4)]
         assert results == [True, True, True, False]
 
     @pytest.mark.anyio
     async def test_returns_false_when_exhausted(self, rl):
-        import app.config as cfg
-        cfg.settings.daily_apply_limit = 1
-        assert await rl.check_and_consume_apply() is True
-        assert await rl.check_and_consume_apply() is False
-
-
-# ---------------------------------------------------------------------------
-# VLM 三路共享预算
-# ---------------------------------------------------------------------------
-
-class TestVlmQuota:
-    @pytest.mark.anyio
-    async def test_three_consumers_share_budget(self, rl):
-        import app.config as cfg
-        cfg.settings.vlm_daily_limit = 3
-        # vision_backend 消耗 1
-        assert await rl.check_and_consume_vlm("vision_backend") is True
-        # planner 消耗 1
-        assert await rl.check_and_consume_vlm("planner") is True
-        # inbox_watcher 消耗 1
-        assert await rl.check_and_consume_vlm("inbox_watcher") is True
-        # 第4次：全部消费者均应返回 False
-        assert await rl.check_and_consume_vlm("vision_backend") is False
-        assert await rl.check_and_consume_vlm("planner") is False
-        assert await rl.check_and_consume_vlm("inbox_watcher") is False
+        assert await rl.check_and_consume_apply(daily_limit=1) is True
+        assert await rl.check_and_consume_apply(daily_limit=1) is False
 
     @pytest.mark.anyio
-    async def test_inbox_watcher_returns_false_not_raises(self, rl):
-        import app.config as cfg
-        cfg.settings.vlm_daily_limit = 0
-        # inbox_watcher 超额时返回 False，不抛异常
-        result = await rl.check_and_consume_vlm("inbox_watcher")
-        assert result is False
+    async def test_zero_limit_rejects_immediately(self, rl):
+        assert await rl.check_and_consume_apply(daily_limit=0) is False
 
     @pytest.mark.anyio
-    async def test_high_priority_consumers_also_return_false_on_exhaustion(self, rl):
-        import app.config as cfg
-        cfg.settings.vlm_daily_limit = 0
-        assert await rl.check_and_consume_vlm("vision_backend") is False
-        assert await rl.check_and_consume_vlm("planner") is False
-
-    @pytest.mark.anyio
-    async def test_concurrent_vlm_no_overcount(self, rl):
-        """并发消耗不应超过 vlm_daily_limit。"""
-        import app.config as cfg
-        cfg.settings.vlm_daily_limit = 5
+    async def test_concurrent_no_overcount(self, rl):
+        """并发消耗不应超过 daily_limit。"""
         results = await asyncio.gather(*[
-            rl.check_and_consume_vlm("vision_backend") for _ in range(10)
+            rl.check_and_consume_apply(daily_limit=5) for _ in range(10)
         ])
         assert results.count(True) == 5
         assert results.count(False) == 5
 
     @pytest.mark.anyio
     async def test_get_quota_reflects_consumption(self, rl):
-        import app.config as cfg
-        cfg.settings.vlm_daily_limit = 10
-        await rl.check_and_consume_vlm("vision_backend")
-        await rl.check_and_consume_vlm("planner")
-        quota = await rl.get_quota()
-        assert quota["vlm_count"] == 2
+        await rl.check_and_consume_apply(daily_limit=10)
+        await rl.check_and_consume_apply(daily_limit=10)
+        quota = await rl.get_quota(daily_limit=10)
+        assert quota["apply_count"] == 2
+        assert quota["daily_apply_limit"] == 10

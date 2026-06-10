@@ -12,6 +12,7 @@ LEGAL_TRANSITIONS = [
     (ApplicationStatus.CLAIMED,  ApplicationStatus.SENDING),
     (ApplicationStatus.SENDING,  ApplicationStatus.SENT),
     (ApplicationStatus.SENDING,  ApplicationStatus.FAILED),
+    (ApplicationStatus.PENDING,  ApplicationStatus.DUP),      # DUP 预检前移，不经 CLAIMED/SENDING
 ]
 
 # 非法转移（dispatcher 不应执行）

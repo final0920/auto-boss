@@ -7,13 +7,14 @@ collector — 抓取岗位并去重，建 Application(PENDING)。
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from sqlmodel import Session, select
 
 from app.db import engine
 from app.models import Application, ApplicationStatus, Job
+from app.pipeline.screener import parse_salary
 
 
 @dataclass
@@ -24,6 +25,9 @@ class RawJob:
     salary: str = ""
     area: str = ""
     jd: str = ""
+    # 列表页标签字段（fl_require_info 来源）；M3 详情页抓到后会覆盖 Job 表
+    degree: str = ""
+    experience: str = ""
 
 
 def _make_jd_hash(company: str, title: str, jd: str) -> str:
@@ -41,6 +45,7 @@ def collect_jobs(
     返回新建 Application 的 id 列表。
 
     幂等：相同 jd_hash 跳过，不重复建投递记录。
+    入库时解析 salary 写入 salary_min_k / salary_max_k。
     """
     new_app_ids: list[int] = []
 
@@ -66,7 +71,7 @@ def collect_jobs(
                     continue  # 完全重复，跳过
                 job = existing_job
             else:
-                # 新 Job
+                sal_min, sal_max = parse_salary(raw.salary)
                 job = Job(
                     title=raw.title,
                     company=raw.company,
@@ -74,6 +79,10 @@ def collect_jobs(
                     area=raw.area,
                     jd=raw.jd,
                     jd_hash=jd_hash,
+                    salary_min_k=sal_min if sal_min > 0 else None,
+                    salary_max_k=sal_max if sal_max > 0 else None,
+                    degree=raw.degree,
+                    experience=raw.experience,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
                 )

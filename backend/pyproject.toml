@@ -1,15 +1,13 @@
 [project]
 name = "boss-autoapply-backend"
 version = "0.1.0"
-description = "真机端自动筛选 + 半自动投递 Boss 直聘（AutoGLM 式 adb 原语 + 可插拔双后端 + webshell）"
+description = "Boss 直聘真机自动投递：结构化硬过滤 + LLM 打分 + root adb 投递 + 投递核对看板"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.34",
     "python-socketio>=5.12",
     "uiautomator2>=3.2,<4",
-    "langgraph>=0.2.60",
-    "langchain-core>=0.3",
     "openai>=1.60",
     "sqlmodel>=0.0.22",
     "apscheduler>=3.11,<4",
@@ -17,8 +15,6 @@ dependencies = [
     "python-dotenv>=1.0",
     "pillow>=11.0",
     "httpx>=0.28",
-    "rapidocr-onnxruntime>=1.4",
-    "pywinpty>=2.0; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

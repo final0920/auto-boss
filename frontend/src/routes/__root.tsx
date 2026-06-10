@@ -5,7 +5,7 @@ import { cn } from '../lib/utils'
 import { ThemeToggle } from '../components/ThemeToggle'
 import {
   Monitor, Smartphone, Briefcase, Send, Mail, Filter,
-  Clock, BarChart2, Terminal, Settings, ChevronLeft, ChevronRight,
+  Clock, BarChart2, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed'
@@ -38,7 +38,6 @@ function RootLayout() {
     { to: '/rules', label: t.nav.rules, icon: Filter },
     { to: '/scheduled', label: t.nav.scheduled, icon: Clock },
     { to: '/logs', label: t.nav.logs, icon: BarChart2 },
-    { to: '/terminal', label: t.nav.terminal, icon: Terminal },
     { to: '/settings', label: t.nav.settings, icon: Settings },
   ] as const
 

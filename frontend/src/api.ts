@@ -53,3 +53,34 @@ export async function apiDelete<T>(path: string): Promise<T> {
 }
 
 export default api
+
+// ── RulesConfig — single source of truth matching backend pydantic RulesConfig ──
+export interface RulesConfig {
+  salary_min_k: number
+  salary_max_k: number
+  allowed_cities: string[]
+  blocked_areas: string[]
+  include_keywords: string[]
+  exclude_keywords: string[]
+  company_scales: string[]
+  my_degree: string
+  my_experience_years: number
+  hr_active_within_days: number
+  dedup_contacted: boolean
+  llm_threshold: number
+  profile: string
+  greeting_prompt: string
+  daily_limit: number
+  interval_min_sec: number
+  interval_max_sec: number
+  night_stop_start: string
+  night_stop_end: string
+}
+
+export function getRules(): Promise<RulesConfig> {
+  return apiGet<RulesConfig>('/config/rules')
+}
+
+export function putRules(cfg: RulesConfig): Promise<RulesConfig> {
+  return apiPut<RulesConfig>('/config/rules', cfg)
+}

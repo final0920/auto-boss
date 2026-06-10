@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useDevice } from '../lib/device-context'
 import { useI18n } from '../lib/i18n'
 import type { Device, DeviceMode } from '../lib/device-context'
 import { Button, Card, CardHeader, CardTitle, CardContent, Badge } from '../components/ui'
 import { cn } from '../lib/utils'
-import { apiGet, apiPost } from '../api'
+import { apiGet } from '../api'
 
 // 后端 /devices/usb 返回的原始设备结构（DeviceInfo）
 interface RawDevice {
@@ -67,20 +67,7 @@ function StatusBadge({ status }: { status: Device['status'] }) {
 
 function DeviceCard({ device }: { device: Device }) {
   const { t } = useI18n()
-  const { setActiveDevice, setDeviceMode } = useDevice()
-
-  // 切换模式：乐观更新，同步到后端
-  const handleModeToggle = useCallback(async () => {
-    const next = device.mode !== 'MANUAL' ? 'MANUAL' : 'AUTO'
-    setDeviceMode(device.id, next)
-    try {
-      // 后端路径为 /devices/mode，device_id 走 body
-      await apiPost('/devices/mode', { device_id: device.id, mode: next })
-    } catch {
-      // 失败时回滚
-      setDeviceMode(device.id, device.mode)
-    }
-  }, [device.id, device.mode, setDeviceMode])
+  const { setActiveDevice } = useDevice()
 
   return (
     <Card variant="interactive">
@@ -125,13 +112,6 @@ function DeviceCard({ device }: { device: Device }) {
           >
             {t.screen.title}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleModeToggle}
-          >
-            {device.mode !== 'MANUAL' ? t.device.mode.MANUAL : t.device.mode.AUTO}
-          </Button>
         </div>
       </CardContent>
     </Card>
@@ -149,17 +129,16 @@ function IndexPage() {
     setLoading(true)
     setError(null)
 
-    // 设备列表用 /devices/usb(仅在线真机，排除模拟器)；并行拉全局模式与配额填充卡片
+    // 设备列表用 /devices/usb(仅在线真机，排除模拟器)；并行拉配额填充卡片
     Promise.all([
       apiGet<RawDevice[]>('/devices/usb'),
-      apiGet<{ mode: DeviceMode }>('/devices/mode').catch(() => ({ mode: 'AUTO' as DeviceMode })),
       apiGet<QuotaResp>('/logs/quota').catch(() => null),
     ])
-      .then(([raws, modeResp, quota]) => {
+      .then(([raws, quota]) => {
         if (cancelled) return
         const applied = quota?.apply_count ?? 0
         const limit = quota?.daily_apply_limit ?? 0
-        setDevices(raws.map(r => toDevice(r, modeResp.mode, applied, limit)))
+        setDevices(raws.map(r => toDevice(r, 'AUTO' as DeviceMode, applied, limit)))
       })
       .catch(() => {
         if (!cancelled) setError('无法连接到后端，请确认服务已启动')

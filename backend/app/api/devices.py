@@ -47,29 +47,3 @@ async def list_usb_devices() -> list[dict]:
     ]
 
 
-@router.get("/mode", dependencies=[Depends(require_auth)])
-async def get_device_mode() -> dict:
-    """返回当前 device_mode。"""
-    from app.automation.device_mode import device_mode_manager
-
-    return {"mode": device_mode_manager.mode.value}
-
-
-@router.post("/mode", dependencies=[Depends(require_auth)])
-async def set_device_mode(body: dict) -> dict:
-    """切换 device_mode（AUTO/MANUAL/PAUSED）。"""
-    from app.automation.device_mode import DeviceMode, device_mode_manager
-
-    new_mode_str = str(body.get("mode", "")).upper()
-    try:
-        new_mode = DeviceMode(new_mode_str)
-    except ValueError:
-        from fastapi import HTTPException, status
-
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid mode '{new_mode_str}'. Must be AUTO, MANUAL, or PAUSED.",
-        )
-    reason = str(body.get("reason", ""))
-    await device_mode_manager.set_mode(new_mode, reason=reason)
-    return {"mode": device_mode_manager.mode.value}

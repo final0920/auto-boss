@@ -35,10 +35,10 @@ async def get_job(job_id: int, db: Session = Depends(get_db)) -> dict:
 async def trigger_fetch() -> dict:
     """触发岗位抓取（stub）。
 
-    TODO 真机阶段：经 device_mode 锁调用 pipeline.collector 抓取当前列表页岗位。
+    TODO(M3): runner 融合循环落地后，由 runner 编排 BossDriver 采集 + collector 入库。
     当前返回占位，便于前端按钮联调。
     """
-    return {"triggered": True, "note": "stub — 真机阶段接 pipeline.collector"}
+    return {"triggered": True, "note": "stub — M3 接 runner/collector"}
 
 
 @router.post("/{job_id}/blacklist", dependencies=[Depends(require_auth)])

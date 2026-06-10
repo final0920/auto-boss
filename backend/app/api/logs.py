@@ -32,7 +32,7 @@ async def list_logs(
 
 @router.get("/quota", dependencies=[Depends(require_auth)])
 async def get_quota() -> dict:
-    """今日配额快照（三路 VLM 成本 + 熔断状态，AC13）。"""
+    """今日投递配额快照。"""
     from app.pipeline.rate_limiter import rate_limiter
     return await rate_limiter.get_quota()
 
@@ -88,8 +88,4 @@ def _log_dict(entry: RunLog) -> dict:
         "message": entry.message,
         "application_id": entry.application_id,
         "job_id": entry.job_id,
-        "vlm_calls": entry.vlm_calls,
-        "backend_switches": entry.backend_switches,
-        "backend_used": entry.backend_used,
-        "paused_reason": entry.paused_reason,
     }

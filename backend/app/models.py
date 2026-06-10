@@ -3,6 +3,7 @@ SQLModel 数据模型。
 所有表共享同一 SQLite 数据库（见 db.py）。
 
 Application 状态机：PENDING -> CLAIMED -> SENDING -> SENT | FAILED
+                    PENDING -> DUP（设备级"继续沟通"预检，不经 CLAIMED/SENDING）
   - dispatcher 只取 CLAIMED
   - SENDING 仅由启动自检转人工确认，永不自动重拾
   - taken_over=True 表示人工接管（inbox_watcher 发现 HR 回复后置）
@@ -27,17 +28,13 @@ class ApplicationStatus(str, enum.Enum):
     SENDING = "SENDING"
     SENT = "SENT"
     FAILED = "FAILED"
+    DUP = "DUP"
 
 
 class MessageRole(str, enum.Enum):
     USER = "user"
     HR = "hr"
     SYSTEM = "system"
-
-
-class BackendType(str, enum.Enum):
-    UIA = "uia"
-    VISION = "vision"
 
 
 # ---------------------------------------------------------------------------
@@ -60,6 +57,16 @@ class Job(SQLModel, table=True):
     reasons: str = ""          # JSON list[str]，screener 输出
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # 详情页补全字段（detail_fetched_at 有值代表已抓过详情页）
+    salary_min_k: Optional[float] = None
+    salary_max_k: Optional[float] = None
+    degree: str = ""
+    experience: str = ""
+    company_scale: str = ""
+    finance_stage: str = ""
+    hr_active: str = ""
+    hr_name: str = ""
+    detail_fetched_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +92,7 @@ class Application(SQLModel, table=True):
     )
 
     # --- 投递内容 ---
-    greeting: str = ""          # 打招呼语（dispatcher 发送前写入）
+    greeting: str = ""          # 实发招呼语（投递成功后从聊天页抓回）
 
     # --- 时间戳 ---
     sent_at: Optional[datetime] = None
@@ -140,18 +147,10 @@ class RunLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     ts: datetime = Field(default_factory=datetime.utcnow, index=True)
     level: str = "INFO"         # INFO | WARNING | ERROR
-    event: str = ""             # 事件类型，如 "apply" | "backend_switch" | "paused"
+    event: str = ""             # 事件类型，如 "apply" | "paused"
     message: str = ""
     application_id: Optional[int] = None
     job_id: Optional[int] = None
-    # VLM 统计（本次事件消耗）
-    vlm_calls: int = 0
-    # 后端切换次数（本次事件）
-    backend_switches: int = 0
-    # 后端类型（本次事件使用）
-    backend_used: str = ""
-    # 暂停原因（PAUSED 时填）
-    paused_reason: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -166,5 +165,4 @@ class Quota(SQLModel, table=True):
     # 格式 YYYY-MM-DD
     date: str = Field(index=True, unique=True)
     apply_count: int = 0
-    vlm_count: int = 0
     updated_at: datetime = Field(default_factory=datetime.utcnow)

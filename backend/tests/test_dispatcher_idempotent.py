@@ -21,7 +21,6 @@ def _install_stubs():
         s.daily_apply_limit = 150
         s.apply_interval_min = 0
         s.apply_interval_max = 0
-        s.vlm_daily_limit = 200
         stub.settings = s
         sys.modules["app.config"] = stub
 

@@ -10,14 +10,11 @@ dispatcher — 两阶段幂等投递（AC8/plan §4）。
 """
 from __future__ import annotations
 
-import asyncio
-import random
 from datetime import datetime, time as dtime
 from typing import Optional
 
 from sqlmodel import Session, select
 
-from app.config import settings
 from app.db import engine
 from app.models import Application, ApplicationStatus, RunLog
 from app.pipeline.rate_limiter import rate_limiter
@@ -144,52 +141,3 @@ async def _execute_apply(application_id: int) -> tuple[bool, str, bool]:
         return await execute_apply(application_id)
     except ImportError:
         return False, "executor not implemented", False
-
-
-# ---------------------------------------------------------------------------
-# 批量 dispatcher 循环
-# ---------------------------------------------------------------------------
-
-
-async def dispatch_loop(
-    account_id: str = "default",
-    device_id: str = "default",
-    max_per_run: int = 10,
-) -> dict:
-    """
-    一次 dispatcher 运行：取最多 max_per_run 条 CLAIMED，依次投递。
-    两次投递间随机等待 apply_interval_min ~ apply_interval_max 秒。
-    返回统计 {"sent": int, "failed": int, "skip": int}。
-    """
-    stats = {"sent": 0, "failed": 0, "skip": 0}
-
-    with Session(engine) as session:
-        apps = session.exec(
-            select(Application)
-            .where(
-                Application.status == ApplicationStatus.CLAIMED,
-                Application.account_id == account_id,
-                Application.device_id == device_id,
-            )
-            .limit(max_per_run)
-        ).all()
-        app_ids = [a.id for a in apps]
-
-    for app_id in app_ids:
-        result = await dispatch_one(app_id)
-        if result == "SENT":
-            stats["sent"] += 1
-        elif result == "FAILED":
-            stats["failed"] += 1
-        else:
-            stats["skip"] += 1
-
-        # 随机间隔（夜停/配额耗尽时跳过等待）
-        if result not in ("SKIP",):
-            delay = random.uniform(
-                settings.apply_interval_min,
-                settings.apply_interval_max,
-            )
-            await asyncio.sleep(delay)
-
-    return stats

@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TerminalRouteImport } from './routes/terminal'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScreenRouteImport } from './routes/screen'
 import { Route as ScheduledRouteImport } from './routes/scheduled'
@@ -20,11 +19,6 @@ import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
 
-const TerminalRoute = TerminalRouteImport.update({
-  id: '/terminal',
-  path: '/terminal',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -81,7 +75,6 @@ export interface FileRoutesByFullPath {
   '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
-  '/terminal': typeof TerminalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,7 +86,6 @@ export interface FileRoutesByTo {
   '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
-  '/terminal': typeof TerminalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,7 +98,6 @@ export interface FileRoutesById {
   '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
-  '/terminal': typeof TerminalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,7 +111,6 @@ export interface FileRouteTypes {
     | '/scheduled'
     | '/screen'
     | '/settings'
-    | '/terminal'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -132,7 +122,6 @@ export interface FileRouteTypes {
     | '/scheduled'
     | '/screen'
     | '/settings'
-    | '/terminal'
   id:
     | '__root__'
     | '/'
@@ -144,7 +133,6 @@ export interface FileRouteTypes {
     | '/scheduled'
     | '/screen'
     | '/settings'
-    | '/terminal'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -157,18 +145,10 @@ export interface RootRouteChildren {
   ScheduledRoute: typeof ScheduledRoute
   ScreenRoute: typeof ScreenRoute
   SettingsRoute: typeof SettingsRoute
-  TerminalRoute: typeof TerminalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terminal': {
-      id: '/terminal'
-      path: '/terminal'
-      fullPath: '/terminal'
-      preLoaderRoute: typeof TerminalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -245,7 +225,6 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduledRoute: ScheduledRoute,
   ScreenRoute: ScreenRoute,
   SettingsRoute: SettingsRoute,
-  TerminalRoute: TerminalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

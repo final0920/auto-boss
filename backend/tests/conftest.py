@@ -22,15 +22,11 @@ def _make_fake_settings() -> MagicMock:
     s.gpt_reasoning = "high"
     s.bind_host = "127.0.0.1"
     s.terminal_token = ""
-    s.vlm_daily_limit = 200
     s.daily_apply_limit = 150
     s.score_threshold = 80
     s.apply_interval_min = 0
     s.apply_interval_max = 0
     s.database_url = "sqlite://"   # in-memory SQLite for tests
-    s.t_ctrl = 0.8
-    s.t_ocr = 0.6
-    s.default_backend = "uia"
     s.inbox_poll_min_sec = 120
     s.inbox_poll_max_sec = 300
     return s
@@ -73,7 +69,6 @@ def reset_test_state():
     cfg.settings.gpt_base_url = "https://gpt.pkpp.cn/v1"
     cfg.settings.gpt_model = "gpt-5.5"
     cfg.settings.gpt_reasoning = "high"
-    cfg.settings.vlm_daily_limit = 200
     cfg.settings.daily_apply_limit = 150
     # Reset LLM singleton
     try:
