@@ -14,7 +14,6 @@ import { Route as ScreenRouteImport } from './routes/screen'
 import { Route as ScheduledRouteImport } from './routes/scheduled'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as LogsRouteImport } from './routes/logs'
-import { Route as JobsRouteImport } from './routes/jobs'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as ApplicationsRouteImport } from './routes/applications'
 import { Route as IndexRouteImport } from './routes/index'
@@ -44,11 +43,6 @@ const LogsRoute = LogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JobsRoute = JobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const InboxRoute = InboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -69,7 +63,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/inbox': typeof InboxRoute
-  '/jobs': typeof JobsRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
   '/scheduled': typeof ScheduledRoute
@@ -80,7 +73,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/inbox': typeof InboxRoute
-  '/jobs': typeof JobsRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
   '/scheduled': typeof ScheduledRoute
@@ -92,7 +84,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/applications': typeof ApplicationsRoute
   '/inbox': typeof InboxRoute
-  '/jobs': typeof JobsRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
   '/scheduled': typeof ScheduledRoute
@@ -105,7 +96,6 @@ export interface FileRouteTypes {
     | '/'
     | '/applications'
     | '/inbox'
-    | '/jobs'
     | '/logs'
     | '/rules'
     | '/scheduled'
@@ -116,7 +106,6 @@ export interface FileRouteTypes {
     | '/'
     | '/applications'
     | '/inbox'
-    | '/jobs'
     | '/logs'
     | '/rules'
     | '/scheduled'
@@ -127,7 +116,6 @@ export interface FileRouteTypes {
     | '/'
     | '/applications'
     | '/inbox'
-    | '/jobs'
     | '/logs'
     | '/rules'
     | '/scheduled'
@@ -139,7 +127,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApplicationsRoute: typeof ApplicationsRoute
   InboxRoute: typeof InboxRoute
-  JobsRoute: typeof JobsRoute
   LogsRoute: typeof LogsRoute
   RulesRoute: typeof RulesRoute
   ScheduledRoute: typeof ScheduledRoute
@@ -184,13 +171,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/jobs': {
-      id: '/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof JobsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/inbox': {
       id: '/inbox'
       path: '/inbox'
@@ -219,7 +199,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApplicationsRoute: ApplicationsRoute,
   InboxRoute: InboxRoute,
-  JobsRoute: JobsRoute,
   LogsRoute: LogsRoute,
   RulesRoute: RulesRoute,
   ScheduledRoute: ScheduledRoute,

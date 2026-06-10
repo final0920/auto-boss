@@ -179,15 +179,8 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
           <span className="text-xs text-muted-foreground animate-pulse">等待视频流…</span>
         </div>
       )}
-      {/* 渲染器 canvas 动态插入此容器 */}
+      {/* 渲染器 canvas 动态插入此容器（只读模式不叠加任何遮罩，保持画面清晰） */}
       <div ref={containerRef} />
-      {!interactive && (
-        <div className="absolute inset-0 bg-background/30 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-          <span className="text-xs text-foreground bg-card/80 backdrop-blur px-3 py-1.5 rounded-full border border-border/60">
-            {t.screen.manualOnly}
-          </span>
-        </div>
-      )}
     </div>
   )
 }

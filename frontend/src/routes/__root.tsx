@@ -4,7 +4,7 @@ import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/utils'
 import { ThemeToggle } from '../components/ThemeToggle'
 import {
-  Monitor, Smartphone, Briefcase, Send, Mail, Filter,
+  Monitor, Smartphone, Send, Mail, Filter,
   Clock, BarChart2, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
@@ -32,8 +32,7 @@ function RootLayout() {
   const navItems = [
     { to: '/', label: t.nav.devices, icon: Smartphone },
     { to: '/screen', label: t.nav.screen, icon: Monitor },
-    { to: '/jobs', label: t.nav.jobs, icon: Briefcase },
-    { to: '/applications', label: t.nav.applications, icon: Send },
+    { to: '/applications', label: '投递历史', icon: Send },
     { to: '/inbox', label: t.nav.inbox, icon: Mail },
     { to: '/rules', label: t.nav.rules, icon: Filter },
     { to: '/scheduled', label: t.nav.scheduled, icon: Clock },

@@ -84,3 +84,60 @@ export function getRules(): Promise<RulesConfig> {
 export function putRules(cfg: RulesConfig): Promise<RulesConfig> {
   return apiPut<RulesConfig>('/config/rules', cfg)
 }
+
+// ── Pipeline runner 控制面 ──
+export interface PipelineStatus {
+  state: 'IDLE' | 'RUNNING' | 'PAUSED_GEETEST' | 'STOPPED'
+  sub_state: string
+  paused_reason: string
+  serial: string
+  started_at: string | null
+  last_error: string
+  active: boolean
+  stats: Record<string, number>
+  today_applied: number
+  daily_limit: number
+}
+
+export const getPipelineStatus = () => apiGet<PipelineStatus>('/pipeline/status')
+export const startPipeline = (serial?: string) =>
+  apiPost<{ ok: boolean; serial: string }>('/pipeline/run', serial ? { serial } : {})
+export const stopPipeline = () =>
+  apiPost<{ ok: boolean; state: string }>('/pipeline/stop')
+
+// ── 投递历史记录（join Job 全字段） ──
+export interface JobInfo {
+  title: string
+  company: string
+  salary: string
+  salary_min_k: number | null
+  salary_max_k: number | null
+  area: string
+  jd: string
+  score: number | null
+  reasons: string
+  degree: string
+  experience: string
+  company_scale: string
+  finance_stage: string
+  hr_name: string
+  hr_active: string
+}
+
+export interface ApplicationRecord {
+  id: number
+  job_id: number
+  status: 'PENDING' | 'CLAIMED' | 'SENDING' | 'SENT' | 'FAILED' | 'DUP'
+  greeting: string
+  taken_over: boolean
+  fail_reason: string
+  sent_at: string | null
+  created_at: string | null
+  updated_at: string | null
+  job?: JobInfo
+}
+
+export const getApplications = (status?: string) =>
+  apiGet<ApplicationRecord[]>('/applications', status ? { status } : undefined)
+export const confirmApplication = (id: number, sent: boolean) =>
+  apiPost(`/applications/${id}/confirm`, { sent })

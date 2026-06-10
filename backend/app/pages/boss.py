@@ -59,6 +59,10 @@ RID_MSG_LAST = "tv_msg"           # 最后一条消息全文
 RID_MSG_TIME = "tv_time_v2"       # '13:01' / '昨天 23:56'
 RID_MSG_STATUS = "iv_msg_status"  # '[新招呼]'(HR主动) / '[送达]'(我方消息)；HR 回复后无此前缀
 RID_MSG_SEARCH = "et_input"       # 消息页搜索框（页面到位判据）
+RID_CHAT_MSG = "tv_content_text"  # 聊天页消息气泡文本（实发招呼语来源）
+
+# 风控/验证页特征（前台 activity 关键词）
+VERIFY_KEYWORDS = ("captcha", "verify", "geetest", "securitycheck")
 
 # 列表标签解析（fl_require_info 子节点）
 DEGREE_LABELS = ("学历不限", "初中及以下", "中专/中技", "高中", "大专", "本科", "硕士", "博士")
@@ -265,6 +269,41 @@ class BossDriver:
             if "立即沟通" in txt or "继续沟通" in txt:
                 return _bounds_center(node.attrib.get("bounds", ""))
         return None
+
+    def detect_verify(self) -> bool:
+        """检测当前是否落入风控/验证页（geetest 等）。"""
+        act = self.current_activity().lower()
+        return any(k in act for k in VERIFY_KEYWORDS)
+
+    def tap_chat_and_capture(self) -> tuple[bool, str, str]:
+        """点「立即沟通」→ 验证聊天页 → 抓实发招呼语（M3 投递动作）。
+
+        返回 (ok, greeting, fail_reason)。前置：当前停在目标岗位详情页。
+        greeting 取聊天页最后一条 tv_content_text（Boss"自动打招呼"发出的文本）。
+        """
+        detail = self.dump()
+        if detail is None:
+            return False, "", "详情页 dump 失败"
+        btn = self.find_chat_button(detail)
+        if btn is None:
+            return False, "", "未找到沟通按钮"
+        if not self._tap_until(btn[0], btn[1], "ChatRoomActivity"):
+            return False, "", "未跳转聊天页"
+        chat = self.dump()
+        verified = False
+        greeting = ""
+        if chat is not None:
+            texts: list[str] = []
+            for n in chat.iter("node"):
+                t = n.attrib.get("text", "") or ""
+                if APPLY_OK_MARK in t:
+                    verified = True
+                if _rid_last(n.attrib.get("resource-id", "")) == RID_CHAT_MSG and t:
+                    texts.append(t)
+            if texts:
+                greeting = texts[-1]
+        ok = verified or "ChatRoomActivity" in self.current_activity()
+        return ok, greeting, "" if ok else "聊天页未验证"
 
     def tap_chat_and_verify(self) -> bool:
         """点「立即沟通」(带重试)，验证进入聊天页且出现"由你发起的沟通"。"""

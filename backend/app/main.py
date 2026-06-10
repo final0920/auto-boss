@@ -98,6 +98,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     # --- shutdown ---
+    # runner 真停（A11：无悬挂 Task）
+    from app.pipeline.runner import runner  # noqa: PLC0415
+    if runner.is_active():
+        logger.info("等待 runner 停止…")
+        await runner.stop()
     logger.info("boss-autoapply 后端正在关闭")
 
 
@@ -138,6 +143,7 @@ from app.api import (  # noqa: E402
     logs,
     media,
     messages,
+    pipeline,
     scheduled,
 )
 
@@ -151,6 +157,7 @@ app.include_router(messages.router, prefix=_API_PREFIX)
 app.include_router(config_api.router, prefix=_API_PREFIX)
 app.include_router(scheduled.router, prefix=_API_PREFIX)
 app.include_router(logs.router, prefix=_API_PREFIX)
+app.include_router(pipeline.router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"])
