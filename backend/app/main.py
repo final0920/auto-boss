@@ -144,7 +144,6 @@ from app.api import (  # noqa: E402
     media,
     messages,
     pipeline,
-    scheduled,
 )
 
 _API_PREFIX = "/api"
@@ -155,7 +154,6 @@ app.include_router(jobs.router, prefix=_API_PREFIX)
 app.include_router(applications.router, prefix=_API_PREFIX)
 app.include_router(messages.router, prefix=_API_PREFIX)
 app.include_router(config_api.router, prefix=_API_PREFIX)
-app.include_router(scheduled.router, prefix=_API_PREFIX)
 app.include_router(logs.router, prefix=_API_PREFIX)
 app.include_router(pipeline.router, prefix=_API_PREFIX)
 

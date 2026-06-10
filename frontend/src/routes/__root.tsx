@@ -5,7 +5,7 @@ import { cn } from '../lib/utils'
 import { ThemeToggle } from '../components/ThemeToggle'
 import {
   Monitor, Smartphone, Send, Mail, Filter,
-  Clock, BarChart2, Settings, ChevronLeft, ChevronRight,
+  BarChart2, Settings, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 
 const SIDEBAR_COLLAPSED_KEY = 'sidebar-collapsed'
@@ -32,10 +32,9 @@ function RootLayout() {
   const navItems = [
     { to: '/', label: t.nav.devices, icon: Smartphone },
     { to: '/screen', label: t.nav.screen, icon: Monitor },
-    { to: '/applications', label: '投递历史', icon: Send },
+    { to: '/applications', label: t.nav.applications, icon: Send },
     { to: '/inbox', label: t.nav.inbox, icon: Mail },
     { to: '/rules', label: t.nav.rules, icon: Filter },
-    { to: '/scheduled', label: t.nav.scheduled, icon: Clock },
     { to: '/logs', label: t.nav.logs, icon: BarChart2 },
     { to: '/settings', label: t.nav.settings, icon: Settings },
   ] as const

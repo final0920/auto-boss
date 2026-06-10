@@ -10,7 +10,6 @@ dependencies = [
     "uiautomator2>=3.2,<4",
     "openai>=1.60",
     "sqlmodel>=0.0.22",
-    "apscheduler>=3.11,<4",
     "pydantic-settings>=2.7",
     "python-dotenv>=1.0",
     "pillow>=11.0",

@@ -2,11 +2,9 @@ export const zh = {
   nav: {
     devices: '设备',
     screen: '投屏',
-    jobs: '岗位',
-    applications: '投递',
+    applications: '投递历史',
     inbox: '收件箱',
     rules: '规则',
-    scheduled: '定时',
     logs: '日志',
     settings: '设置',
   },
@@ -113,12 +111,6 @@ export const zh = {
       '7': '7 天内',
       '30': '30 天内',
     },
-  },
-  scheduled: {
-    title: '定时任务',
-    inspectInterval: '巡检间隔',
-    nightStop: '夜间停止',
-    rateLimitWindow: '限速窗口',
   },
   logs: {
     title: '日志与成本',

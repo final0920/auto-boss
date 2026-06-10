@@ -4,11 +4,9 @@ export const en: I18nKeys = {
   nav: {
     devices: 'Devices',
     screen: 'Screen',
-    jobs: 'Jobs',
-    applications: 'Applications',
+    applications: 'History',
     inbox: 'Inbox',
     rules: 'Rules',
-    scheduled: 'Scheduled',
     logs: 'Logs',
     settings: 'Settings',
   },
@@ -115,12 +113,6 @@ export const en: I18nKeys = {
       '7': 'Within 7 days',
       '30': 'Within 30 days',
     },
-  },
-  scheduled: {
-    title: 'Scheduled Tasks',
-    inspectInterval: 'Inspect Interval',
-    nightStop: 'Night Stop',
-    rateLimitWindow: 'Rate Limit Window',
   },
   logs: {
     title: 'Logs & Cost',

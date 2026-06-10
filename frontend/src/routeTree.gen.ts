@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScreenRouteImport } from './routes/screen'
-import { Route as ScheduledRouteImport } from './routes/scheduled'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as InboxRouteImport } from './routes/inbox'
@@ -26,11 +25,6 @@ const SettingsRoute = SettingsRouteImport.update({
 const ScreenRoute = ScreenRouteImport.update({
   id: '/screen',
   path: '/screen',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ScheduledRoute = ScheduledRouteImport.update({
-  id: '/scheduled',
-  path: '/scheduled',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -65,7 +59,6 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
-  '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
 }
@@ -75,7 +68,6 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
-  '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
 }
@@ -86,7 +78,6 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRoute
   '/logs': typeof LogsRoute
   '/rules': typeof RulesRoute
-  '/scheduled': typeof ScheduledRoute
   '/screen': typeof ScreenRoute
   '/settings': typeof SettingsRoute
 }
@@ -98,7 +89,6 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/logs'
     | '/rules'
-    | '/scheduled'
     | '/screen'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -108,7 +98,6 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/logs'
     | '/rules'
-    | '/scheduled'
     | '/screen'
     | '/settings'
   id:
@@ -118,7 +107,6 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/logs'
     | '/rules'
-    | '/scheduled'
     | '/screen'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -129,7 +117,6 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRoute
   LogsRoute: typeof LogsRoute
   RulesRoute: typeof RulesRoute
-  ScheduledRoute: typeof ScheduledRoute
   ScreenRoute: typeof ScreenRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -148,13 +135,6 @@ declare module '@tanstack/react-router' {
       path: '/screen'
       fullPath: '/screen'
       preLoaderRoute: typeof ScreenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/scheduled': {
-      id: '/scheduled'
-      path: '/scheduled'
-      fullPath: '/scheduled'
-      preLoaderRoute: typeof ScheduledRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -201,7 +181,6 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRoute,
   LogsRoute: LogsRoute,
   RulesRoute: RulesRoute,
-  ScheduledRoute: ScheduledRoute,
   ScreenRoute: ScreenRoute,
   SettingsRoute: SettingsRoute,
 }
