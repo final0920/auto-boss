@@ -31,10 +31,13 @@ async def list_logs(
 
 
 @router.get("/quota", dependencies=[Depends(require_auth)])
-async def get_quota() -> dict:
-    """今日投递配额快照。"""
+async def get_quota(db: Session = Depends(get_db)) -> dict:
+    """今日投递配额快照。daily_apply_limit 取规则页 rules.daily_limit，
+    与 runner /pipeline/status 同源，避免设备卡与投递面板显示不一致。"""
     from app.pipeline.rate_limiter import rate_limiter
-    return await rate_limiter.get_quota()
+    from app.rules import load_rules
+    rules = load_rules(db)
+    return await rate_limiter.get_quota(daily_limit=rules.daily_limit)
 
 
 @router.get("/stream", dependencies=[Depends(require_auth)])
