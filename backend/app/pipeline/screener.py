@@ -152,8 +152,17 @@ def parse_hr_active(s: str) -> Optional[int]:
     if not s:
         return None
     s_lower = s.strip()
+    # 真机实测格式（D0）：'今日回复10+次'、'17分钟前回复 | 今日回复10+次'
+    if re.search(r"(分钟|小时)前", s_lower):
+        return 1
     if any(kw in s_lower for kw in ("在线", "刚刚", "今日", "今天")):
         return 1
+    if "昨日" in s_lower or "昨天" in s_lower:
+        return 2
+    if "周内" in s_lower:
+        return 7
+    if "月内" in s_lower:
+        return 30
     if re.search(r"[13]\s*日", s_lower):
         # 区分 "3日内" vs "本月" 等
         m = re.search(r"(\d+)\s*日", s_lower)

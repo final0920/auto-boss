@@ -33,6 +33,37 @@ RID_CHAT_BTN = "btn_chat"          # 「立即沟通」
 RID_CONTACT_TIME = "tv_contact_time"  # 聊天页"由你发起的沟通"
 APPLY_OK_MARK = "由你发起的沟通"
 
+# ---- D0 采样固化（2026-06-10，docs/refactor-plan.md §8 步骤6）----
+# 列表卡片扩展字段（全部列表级可得，prefilter 直接可用）
+RID_STAGE = "tv_stage"                # 融资阶段 '未融资'
+RID_SCALE = "tv_scale"                # 公司规模 '100-499人'
+RID_EMPLOYER = "tv_employer"          # HR '刘女士 · 人事专员'
+RID_ACTIVE = "tv_active_status"       # HR 活跃 '今日回复10+次'
+RID_REQUIRE_INFO = "fl_require_info"  # 经验/学历/技能标签容器（子节点无 rid）
+# 详情页（BossJobPagerActivity 首屏）
+RID_D_LOCATION = "tv_required_location"   # '武汉·洪山区·光谷'
+RID_D_EXP = "tv_required_work_exp"        # '1-3年'
+RID_D_DEGREE = "tv_required_degree"       # '本科'
+RID_D_BOSS_NAME = "tv_boss_name"          # '刘女士'
+RID_D_BOSS_TITLE = "tv_boss_title"        # '武汉钧泽科技有限公司 • 人事专员'
+RID_D_BOSS_LABEL = "boss_label_tv"        # '17分钟前回复 | 今日回复10+次'
+# 主页底部 tab：文本节点(tv_tab_N) bounds 折叠为[0,0][0,0]，必须点容器 cl_tab_N
+RID_TAB_JOB = "cl_tab_1"
+RID_TAB_MSG = "cl_tab_3"
+TAB_JOB_FALLBACK_XY = (135, 2247)
+TAB_MSG_FALLBACK_XY = (675, 2247)
+# 消息页会话列表（RecyclerView 项；系统通知项无 tv_position，借此过滤）
+RID_MSG_NAME = "tv_name"          # HR 名 '蒋女士'
+RID_MSG_POSITION = "tv_position"  # '上海君兴 | Java' —— 会话↔Application 匹配键
+RID_MSG_LAST = "tv_msg"           # 最后一条消息全文
+RID_MSG_TIME = "tv_time_v2"       # '13:01' / '昨天 23:56'
+RID_MSG_STATUS = "iv_msg_status"  # '[新招呼]'(HR主动) / '[送达]'(我方消息)；HR 回复后无此前缀
+RID_MSG_SEARCH = "et_input"       # 消息页搜索框（页面到位判据）
+
+# 列表标签解析（fl_require_info 子节点）
+DEGREE_LABELS = ("学历不限", "初中及以下", "中专/中技", "高中", "大专", "本科", "硕士", "博士")
+_EXP_TAG_RE = re.compile(r"^(\d+-?\d*年(以上|以内)?|经验不限|应届|在校)")
+
 _DEVICE_DUMP_PATH = "/sdcard/_boss_ui.xml"
 _BOUNDS_RE = re.compile(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 
@@ -129,11 +160,20 @@ class BossDriver:
         for node in root.iter("node"):
             if _rid_last(node.attrib.get("resource-id", "")) != RID_JOB_CARD:
                 continue
-            fields = {RID_POSITION_NAME: "", RID_SALARY: "", RID_COMPANY: "", RID_DISTANCE: ""}
+            fields = {
+                RID_POSITION_NAME: "", RID_SALARY: "", RID_COMPANY: "", RID_DISTANCE: "",
+                RID_STAGE: "", RID_SCALE: "", RID_EMPLOYER: "", RID_ACTIVE: "",
+            }
+            req_tags: list[str] = []
             for sub in node.iter("node"):
                 rid = _rid_last(sub.attrib.get("resource-id", ""))
                 if rid in fields and not fields[rid]:
                     fields[rid] = sub.attrib.get("text", "")
+                elif rid == RID_REQUIRE_INFO:
+                    for tag in sub.iter("node"):
+                        t = (tag.attrib.get("text") or "").strip()
+                        if t:
+                            req_tags.append(t)
             title = fields[RID_POSITION_NAME].strip()
             if not title:
                 continue
@@ -144,6 +184,12 @@ class BossDriver:
                     company=fields[RID_COMPANY].strip(),
                     salary=fields[RID_SALARY].strip(),
                     area=fields[RID_DISTANCE].strip(),
+                    degree=next((t for t in req_tags if t in DEGREE_LABELS), ""),
+                    experience=next((t for t in req_tags if _EXP_TAG_RE.match(t)), ""),
+                    company_scale=fields[RID_SCALE].strip(),
+                    finance_stage=fields[RID_STAGE].strip(),
+                    hr_name=fields[RID_EMPLOYER].split("·")[0].strip(),
+                    hr_active=fields[RID_ACTIVE].strip(),
                 ),
                 cx=cx, cy=cy,
             ))
@@ -244,6 +290,107 @@ class BossDriver:
         if "MainActivity" not in self.current_activity():
             self.dev.press_back()
             time.sleep(1.0)
+
+    # ------------------------------------------------------------------
+    # 详情页字段补全（D0 固化）
+    # ------------------------------------------------------------------
+
+    def _find_text(self, root: ET.Element, rid_last: str) -> str:
+        for node in root.iter("node"):
+            if _rid_last(node.attrib.get("resource-id", "")) == rid_last:
+                return node.attrib.get("text", "") or ""
+        return ""
+
+    def scrape_detail_fields(self, detail: ET.Element) -> dict[str, str]:
+        """从详情页控件树提取补全字段（screener 详情级硬过滤用）。
+
+        注：公司规模/融资阶段在列表卡片(tv_scale/tv_stage)已可得，
+        详情首屏不提供；此处只补详情独有字段，缺失返回空串。
+        """
+        return {
+            "location": self._find_text(detail, RID_D_LOCATION),     # '武汉·洪山区·光谷'
+            "experience": self._find_text(detail, RID_D_EXP),
+            "degree": self._find_text(detail, RID_D_DEGREE),
+            "hr_name": self._find_text(detail, RID_D_BOSS_NAME),
+            "hr_title": self._find_text(detail, RID_D_BOSS_TITLE),   # '公司 • 职务'
+            "hr_active": self._find_text(detail, RID_D_BOSS_LABEL),  # '17分钟前回复 | 今日回复10+次'
+            "jd": self._find_text(detail, RID_JD),
+        }
+
+    # ------------------------------------------------------------------
+    # 消息 tab 与会话列表（M4 inbox_watcher 底座，D0 固化）
+    # ------------------------------------------------------------------
+
+    def _tap_main_tab(self, rid_last: str, fallback_xy: tuple[int, int]) -> None:
+        """点主页底部 tab：优先 cl_tab_N 容器中心；dump 失败用固化坐标兜底。"""
+        root = self.dump()
+        c = self._find_node_center(root, rid_last) if root is not None else None
+        if c is None or c == (0, 0):
+            c = fallback_xy
+        self.dev.tap(c[0], c[1])
+        time.sleep(2.0)
+
+    def open_message_tab(self) -> bool:
+        """切到消息 tab。返回是否到位（出现联系人搜索框）。"""
+        self._tap_main_tab(RID_TAB_MSG, TAB_MSG_FALLBACK_XY)
+        root = self.dump()
+        return root is not None and self._find_node_center(root, RID_MSG_SEARCH) is not None
+
+    def back_to_job_tab(self) -> None:
+        """切回职位 tab（巡检结束回锚点）。"""
+        self._tap_main_tab(RID_TAB_JOB, TAB_JOB_FALLBACK_XY)
+
+    def scrape_conversations(self) -> list[dict[str, str]]:
+        """解析消息页当前可见会话列表。
+
+        返回 [{hr_name, position, last_msg, time, status, unread}]：
+        - position 形如 '上海君兴 | Java'（会话↔Application 匹配键）；
+          系统通知项（无 position）已过滤。
+        - status: '[新招呼]'(HR主动) / '[送达]'(我方消息) / ''；
+          ''+unread>0 且 last_msg 非我方招呼语 ≈ HR 新回复（由 inbox_watcher 判定）。
+        """
+        root = self.dump()
+        if root is None:
+            return []
+        want = {
+            RID_MSG_NAME: "hr_name", RID_MSG_POSITION: "position",
+            RID_MSG_LAST: "last_msg", RID_MSG_TIME: "time", RID_MSG_STATUS: "status",
+        }
+        rows: list[tuple[int, str, str]] = []
+        for node in root.iter("node"):
+            text = (node.attrib.get("text") or "").strip()
+            if not text:
+                continue
+            m = _BOUNDS_RE.match(node.attrib.get("bounds", ""))
+            if not m:
+                continue
+            left, top = int(m.group(1)), int(m.group(2))
+            kind = want.get(_rid_last(node.attrib.get("resource-id", "")))
+            # 未读角标：badge_view 内无 rid 纯数字 TextView，位于头像右上(左缘 130~220)
+            if kind is None and not _rid_last(node.attrib.get("resource-id", "")) \
+                    and text.isdigit() and 130 <= left <= 220:
+                kind = "unread"
+            if kind:
+                rows.append((top, kind, text))
+        rows.sort()
+        convs: list[dict[str, str]] = []
+        cur: dict[str, str] | None = None
+        pending_unread = ""
+        for _top, kind, text in rows:
+            if kind == "unread":
+                pending_unread = text   # 角标先于 tv_name 出现，挂到下一个会话
+                continue
+            if kind == "hr_name":
+                if cur is not None:
+                    convs.append(cur)
+                cur = {"hr_name": text, "position": "", "last_msg": "",
+                       "time": "", "status": "", "unread": pending_unread}
+                pending_unread = ""
+            elif cur is not None and not cur[kind]:
+                cur[kind] = text
+        if cur is not None:
+            convs.append(cur)
+        return [c for c in convs if c["position"]]
 
     # ------------------------------------------------------------------
     # 批量自动投递

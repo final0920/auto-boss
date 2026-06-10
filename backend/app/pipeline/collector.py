@@ -28,6 +28,11 @@ class RawJob:
     # 列表页标签字段（fl_require_info 来源）；M3 详情页抓到后会覆盖 Job 表
     degree: str = ""
     experience: str = ""
+    # 列表卡片扩展字段（D0 固化：tv_scale/tv_stage/tv_employer/tv_active_status）
+    company_scale: str = ""
+    finance_stage: str = ""
+    hr_name: str = ""
+    hr_active: str = ""
 
 
 def _make_jd_hash(company: str, title: str, jd: str) -> str:
@@ -83,6 +88,10 @@ def collect_jobs(
                     salary_max_k=sal_max if sal_max > 0 else None,
                     degree=raw.degree,
                     experience=raw.experience,
+                    company_scale=raw.company_scale,
+                    finance_stage=raw.finance_stage,
+                    hr_name=raw.hr_name,
+                    hr_active=raw.hr_active,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
                 )

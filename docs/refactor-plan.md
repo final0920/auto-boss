@@ -361,7 +361,7 @@ DB Config(key="rules", value=RulesConfig JSON)
 ---
 
 ## 11. 开放问题（实现期确认，不阻塞批准）
-1. **D0 采样 rid**（详情 公司规模/融资/学历/经验/HR活跃/HR名；消息 tab 会话列表项）：**不阻塞批准，但阻塞 M3 起步**，须在 M2 末（步骤6）完成；若关键控件无稳定 rid，相关详情级硬过滤降级为 LLM 软判，并回看 A3。
+1. ~~**D0 采样 rid**~~ ✅ **已完成（2026-06-10 真机采样+冒烟通过，固化于 boss.py 常量区）**。关键发现优于计划假设：**公司规模(tv_scale)/融资(tv_stage)/HR名(tv_employer)/HR活跃(tv_active_status)/学历/经验(fl_require_info) 全部列表卡片级可得**——prefilter 能力大增，开详情仅为 JD+投递；详情页补充 rid（tv_required_degree/work_exp/location、tv_boss_name/title、boss_label_tv）；消息页会话项（tv_name/tv_position='公司 | 岗位'匹配键/tv_msg/tv_time_v2/iv_msg_status['新招呼'/'送达']/未读badge）；底部 tab 文本节点 bounds 折叠，必须点 cl_tab_N 容器（坐标兜底已固化）。无任何字段需要降级 LLM 软判，A3 证据链完整成立。采样脚本 scripts/d0_rid_sample.py 留存（Boss 改版后重采样用）。
 2. 会话→Application 匹配：按 HR名+公司/岗位 best-effort，未匹配会话也进收件箱（标"未关联"）。
 3. `Job.degree/experience` 列表标签与详情值的覆盖优先级：**详情覆盖列表**（详情更权威），screen 阶段以详情为准。
 4. 巡检是否跟随夜停：当前定为跟随（减少夜间设备活动），可后续放开。
