@@ -64,37 +64,11 @@ async def disconnect(sid: str) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # 1. 配置验证已在 pydantic model_validator 完成；再次触发以便日志明确
-    logger.info("boss-autoapply 后端启动 bind_host=%s", settings.bind_host)
-
-    # L2: 空 token 安全提示（AC12）
-    if not settings.terminal_token:
-        logger.warning(
-            "TERMINAL_TOKEN 未设置：控制端点当前仅靠 localhost-bind + Origin 保护。"
-            "建议设置高熵 TERMINAL_TOKEN 以启用 Bearer token 鉴权。"
-        )
-
-    # 2. 初始化 DB
-    from app.db import init_db
-    init_db()
-    logger.info("数据库初始化完成")
-
-    # 3. 启动自检：SENDING 记录推人工确认（AC8）
-    try:
-        from app.pipeline.dispatcher import scan_sending
-        stuck = scan_sending()
-        if stuck:
-            logger.warning("scan_sending: 发现 %d 条 SENDING 记录需人工确认: %s", len(stuck), stuck)
-    except Exception as exc:
-        logger.warning("scan_sending 出错: %s", exc)
-
-    # 4. 注册 scrcpy Socket.IO 命名空间
-    try:
-        from app.scrcpy.sio import register_scrcpy_namespace
-        register_scrcpy_namespace(sio)
-    except Exception as exc:
-        logger.warning("scrcpy 命名空间注册失败（非致命）: %s", exc)
-
+    # 启动初始化（建表/崩溃自检/scrcpy 命名空间注册）已移至模块级
+    # _startup_init()（见 asgi_app 构造前）。原因：socketio.ASGIApp 包装下
+    # FastAPI 的 lifespan scope 不被转发执行——曾导致 /scrcpy 命名空间从未注册、
+    # 投屏空白。lifespan 仅保留 shutdown 钩子（若运行环境恰好转发则生效）。
+    logger.info("boss-autoapply lifespan enter bind_host=%s", settings.bind_host)
     yield
 
     # --- shutdown ---
@@ -165,6 +139,36 @@ async def health() -> dict:
         "status": "ok",
         "bind_host": settings.bind_host,
     }
+
+
+# ---------------------------------------------------------------------------
+# 启动初始化（模块级，确保执行）
+# ---------------------------------------------------------------------------
+# socketio.ASGIApp(other_asgi_app=app) 不向 FastAPI 转发 lifespan scope，
+# 因此 DB 建表 / 崩溃自检 / scrcpy 命名空间注册必须在此同步完成，
+# 不能依赖 @asynccontextmanager lifespan（已验证 lifespan 内 register 从未生效）。
+
+def _startup_init() -> None:
+    if not settings.terminal_token:
+        logger.warning(
+            "TERMINAL_TOKEN 未设置：控制端点仅靠 localhost-bind + Origin 保护。"
+        )
+    from app.db import init_db
+    init_db()
+    # scrcpy /scrcpy 命名空间（投屏视频流）
+    from app.scrcpy.sio import register_scrcpy_namespace
+    register_scrcpy_namespace(sio)
+    # 启动自检：SENDING 残留推人工确认（AC8）
+    try:
+        from app.pipeline.dispatcher import scan_sending
+        stuck = scan_sending()
+        if stuck:
+            logger.warning("scan_sending: %d 条 SENDING 待人工确认: %s", len(stuck), stuck)
+    except Exception as exc:
+        logger.warning("scan_sending 出错: %s", exc)
+
+
+_startup_init()
 
 
 # ---------------------------------------------------------------------------
