@@ -67,6 +67,7 @@ export interface RulesConfig {
   my_experience_years: number
   hr_active_within_days: number
   dedup_contacted: boolean
+  llm_enabled: boolean
   llm_threshold: number
   profile: string
   greeting_prompt: string

@@ -409,7 +409,7 @@ class TestScreen:
         rules = make_rules(llm_threshold=80)
         result = self._run_screen(job, rules, llm_score=70)
         assert result.final == "FAILED"
-        assert "threshold" in result.fail_reason or "score" in result.fail_reason
+        assert "阈值" in result.fail_reason or "评分" in result.fail_reason
 
     def test_exact_threshold_passes(self):
         job = make_job()

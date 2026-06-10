@@ -221,14 +221,16 @@ def prefilter(job: Job, rules: RulesConfig) -> tuple[bool, str]:
             if ba in job.area:
                 return (False, f"区域黑名单: {job.area}")
 
-    # 4. include_keywords：对 title（列表级）
+    # 4. include_keywords：对 title（列表级，大小写不敏感——Java/java/JAVA 等价）
     if rules.include_keywords:
-        if not any(kw in job.title for kw in rules.include_keywords):
+        title_l = job.title.lower()
+        if not any(kw.lower() in title_l for kw in rules.include_keywords):
             return (False, f"标题未含必须关键词: {job.title}")
 
-    # 5. exclude_keywords：对 title+company
+    # 5. exclude_keywords：对 title+company（大小写不敏感）
     for kw in rules.exclude_keywords:
-        if kw in job.title or kw in job.company:
+        kw_l = kw.lower()
+        if kw_l in job.title.lower() or kw_l in job.company.lower():
             return (False, f"命中排除关键词: {kw}")
 
     # 6. 列表级 degree（字段非空才判）
@@ -259,6 +261,7 @@ class ScreenResult:
     reasons: list[str] = field(default_factory=list)
     final: str = "FAILED"        # "CLAIMED" | "FAILED"
     fail_reason: str = ""
+    llm_unavailable: bool = False  # LLM 调用失败（如 403）；区别于"分数不够"
 
 
 # ---------------------------------------------------------------------------
@@ -270,16 +273,17 @@ def _check_detail_hard(job: Job, rules: RulesConfig) -> tuple[bool, str, list[st
     """详情级硬过滤。返回 (passed, fail_reason, missing_notes)。"""
     missing: list[str] = []
 
-    # exclude_keywords：作用域扩展到 jd
+    # exclude_keywords：作用域扩展到 jd（大小写不敏感）
     for kw in rules.exclude_keywords:
-        if kw in job.title or kw in job.company or kw in job.jd:
+        kw_l = kw.lower()
+        if kw_l in job.title.lower() or kw_l in job.company.lower() or kw_l in job.jd.lower():
             return (False, f"命中排除关键词: {kw}", missing)
 
-    # include_keywords：详情级含 jd
+    # include_keywords：详情级含 title+jd（大小写不敏感）
     if rules.include_keywords:
-        combined = job.title + job.jd
-        if not any(kw in combined for kw in rules.include_keywords):
-            return (False, f"标题/JD 未含必须关键词", missing)
+        combined = (job.title + job.jd).lower()
+        if not any(kw.lower() in combined for kw in rules.include_keywords):
+            return (False, "标题/JD 未含必须关键词", missing)
 
     # company_scales
     if rules.company_scales:
@@ -341,7 +345,13 @@ def screen(job: Job, rules: RulesConfig) -> ScreenResult:
 
     result.passed_hard = True
 
-    # LLM 打分
+    # LLM 打分可关闭：关闭则硬过滤通过即投（不调 LLM）
+    if not rules.llm_enabled:
+        result.score = -1.0   # 哨兵：未打分
+        result.final = "CLAIMED"
+        result.reasons.append("LLM 打分已关闭：硬过滤通过，直接投递")
+        return result
+
     from app.llm.client import get_client  # 延迟导入避免循环
 
     profile_section = f"\n候选人画像：{rules.profile}" if rules.profile else ""
@@ -361,17 +371,19 @@ def screen(job: Job, rules: RulesConfig) -> ScreenResult:
         result.reasons.extend(data.get("reasons", []))
     except Exception as exc:
         logger.warning("screener LLM 打分失败: %s", exc)
+        result.llm_unavailable = True
         result.score = 0.0
-        result.reasons.append(f"LLM 打分失败: {type(exc).__name__}")
+        result.reasons.append(f"LLM 调用失败: {type(exc).__name__}: {str(exc)[:80]}")
 
     # 阈值判定
-    if result.score >= rules.llm_threshold:
+    if result.llm_unavailable:
+        result.final = "FAILED"
+        result.fail_reason = "LLM 不可用（如 403 被拒）：检查 GPT_API_KEY/中转，或在规则页关闭 LLM 打分"
+    elif result.score >= rules.llm_threshold:
         result.final = "CLAIMED"
     else:
         result.final = "FAILED"
-        result.fail_reason = (
-            f"score={result.score:.1f} < threshold={rules.llm_threshold}"
-        )
+        result.fail_reason = f"评分 {result.score:.0f} < 阈值 {rules.llm_threshold}"
 
     return result
 

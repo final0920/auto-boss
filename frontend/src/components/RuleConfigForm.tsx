@@ -212,7 +212,21 @@ export function RuleConfigForm({ config, loading, onChange }: RuleConfigFormProp
           <CardTitle className="text-base">{t.rules.groupLlm}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1">
+          {/* LLM 打分开关 */}
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-sm text-foreground">启用 LLM 打分</span>
+            <input
+              type="checkbox"
+              checked={config.llm_enabled}
+              disabled={loading}
+              onChange={e => onChange('llm_enabled', e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+          <p className="text-xs text-muted-foreground -mt-1.5">
+            关闭后：硬过滤通过的岗位直接投递，不调用 LLM（适合 LLM 不可用、或想纯按硬条件投递）。
+          </p>
+          <div className={`space-y-1 ${config.llm_enabled ? '' : 'opacity-40 pointer-events-none'}`}>
             <label className="text-xs text-muted-foreground">
               {t.rules.llmThreshold}
               <span className="ml-2 font-mono text-primary">{config.llm_threshold}</span>
@@ -222,7 +236,7 @@ export function RuleConfigForm({ config, loading, onChange }: RuleConfigFormProp
               min={0}
               max={100}
               value={config.llm_threshold}
-              disabled={loading}
+              disabled={loading || !config.llm_enabled}
               onChange={e => onChange('llm_threshold', Number(e.target.value))}
               className="w-full accent-primary disabled:opacity-50"
             />

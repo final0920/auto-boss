@@ -36,6 +36,7 @@ class RulesConfig(BaseModel):
     dedup_contacted: bool = True     # 设备级"继续沟通"跳过(→DUP) + jd_hash 去重
 
     # ---- LLM ----
+    llm_enabled: bool = True          # 关闭则跳过 LLM：硬过滤通过即投递（不打分、不调 LLM）
     llm_threshold: int = 80
     profile: str = ""                # 候选人画像，喂打分 prompt
     greeting_prompt: str = ""        # 预留。当前 Boss App 端"自动打招呼"，系统不发文本

@@ -179,13 +179,14 @@ class BossDriver:
                         if t:
                             req_tags.append(t)
             title = fields[RID_POSITION_NAME].strip()
-            if not title:
-                continue
+            company = fields[RID_COMPANY].strip()
+            if not title or not company:
+                continue  # 数据不完整(dump 时序)，跳过；下轮滚动重抓，避免空公司重复入库
             cx, cy = _bounds_center(node.attrib.get("bounds", ""))
             cards.append(JobCard(
                 raw=RawJob(
                     title=title,
-                    company=fields[RID_COMPANY].strip(),
+                    company=company,
                     salary=fields[RID_SALARY].strip(),
                     area=fields[RID_DISTANCE].strip(),
                     degree=next((t for t in req_tags if t in DEGREE_LABELS), ""),

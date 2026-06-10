@@ -47,6 +47,7 @@ EXPECTED_FIELDS = {
     "interval_max_sec",
     "night_stop_start",
     "night_stop_end",
+    "llm_enabled",
 }
 
 
