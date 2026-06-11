@@ -180,24 +180,50 @@ class ScrcpyStreamer:
     # 连接本地 socket 读取帧
     # ------------------------------------------------------------------
 
-    async def _connect_socket(self, retries: int = 10) -> socket.socket:
-        """等待 scrcpy-server 就绪后连接本地 TCP socket。"""
+    async def _connect_socket(self, retries: int = 20) -> socket.socket:
+        """连接本地 forward socket 并完成 dummy byte 握手。
+
+        adb forward 在设备端 localabstract:scrcpy 尚无监听者时也会 accept 本地
+        连接、随后立即 EOF（recv 返回 b''）——所以必须"连接+读到 0x00"整体重试，
+        不能只重试 connect（官方 scrcpy 客户端同此做法）。
+        """
+        last_state = "未知"
         for i in range(retries):
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.4)
+            # server 进程已退出 → 读 stderr 直接报因，不再空等
+            if self._proc is not None and self._proc.poll() is not None:
+                err = ""
+                try:
+                    if self._proc.stderr:
+                        err = self._proc.stderr.read().decode(errors="replace").strip()
+                except Exception:
+                    pass
+                raise RuntimeError(
+                    f"scrcpy-server 已退出(code={self._proc.returncode}): {err[:300]}"
+                )
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect(("127.0.0.1", self.LOCAL_PORT))
-                # 阻塞模式 + 读超时：用同步 recv via to_thread，不用 loop.sock_recv
-                # （Windows SelectorEventLoop 的 sock_recv 对该 forward socket 误读 EOF）
                 sock.settimeout(2.0)
-                logger.info("scrcpy socket 已连接（第 %d 次尝试）", i + 1)
-                return sock
-            except OSError:
-                if i == retries - 1:
-                    raise RuntimeError(
-                        f"无法连接 scrcpy 本地 socket（端口 {self.LOCAL_PORT}）"
-                    )
-        raise RuntimeError("unreachable")
+                # 阻塞 recv via to_thread（Windows SelectorEventLoop 的 sock_recv
+                # 对该 forward socket 误读 EOF，同步阻塞 recv 正常）
+                dummy = await asyncio.to_thread(sock.recv, 1)
+                if dummy == b"\x00":
+                    logger.info("scrcpy 握手成功（第 %d 次尝试）", i + 1)
+                    return sock
+                # b''=EOF（server 未就绪）/其他=协议异常 → 关闭重试
+                last_state = f"dummy={dummy!r}"
+                sock.close()
+            except (OSError, socket.timeout) as exc:
+                last_state = str(exc)
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        raise RuntimeError(
+            f"scrcpy 握手失败（{retries} 次重试，最后状态: {last_state}）。"
+            "检查设备是否在线、scrcpy-server 是否被系统杀死。"
+        )
 
     # ------------------------------------------------------------------
     # 公开接口：async generator
@@ -217,13 +243,8 @@ class ScrcpyStreamer:
         self._running = True
         sock: Optional[socket.socket] = None
         try:
-            # 跳过 scrcpy 发送的 dummy byte（send_dummy_byte=true）
-            # 用同步 recv + to_thread：Windows SelectorEventLoop 的 loop.sock_recv
-            # 对该 adb-forward socket 会误读 EOF，同步阻塞 recv 正常。
+            # 连接 + dummy byte(0x00) 握手在 _connect_socket 内整体重试完成
             sock = await self._connect_socket()
-            dummy = await asyncio.to_thread(sock.recv, 1)
-            if dummy != b"\x00":
-                logger.warning("scrcpy: dummy byte 异常 %r", dummy)
 
             reader = FrameReader()
             while self._running:
