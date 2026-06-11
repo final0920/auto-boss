@@ -317,12 +317,13 @@ class TestPrefilter:
         passed, _ = prefilter(job, rules)
         assert passed is True
 
-    def test_include_keywords_fail(self):
-        job = make_job(title="Java 工程师")
+    def test_include_keywords_not_checked_at_list_level(self):
+        """include_keywords 不做列表级否决：标题不含也放行，留给详情级对 title+jd 判定
+        （列表页抓不到 JD，标题不含 ≠ JD 不含，避免误杀）。"""
+        job = make_job(title="后端开发工程师")
         rules = make_rules(include_keywords=["Python"])
-        passed, reason = prefilter(job, rules)
-        assert passed is False
-        assert "关键词" in reason
+        passed, _ = prefilter(job, rules)
+        assert passed is True
 
     def test_exclude_keywords_title(self):
         job = make_job(title="外包 Python 工程师")

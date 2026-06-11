@@ -221,11 +221,9 @@ def prefilter(job: Job, rules: RulesConfig) -> tuple[bool, str]:
             if ba in job.area:
                 return (False, f"区域黑名单: {job.area}")
 
-    # 4. include_keywords：对 title（列表级，大小写不敏感——Java/java/JAVA 等价）
-    if rules.include_keywords:
-        title_l = job.title.lower()
-        if not any(kw.lower() in title_l for kw in rules.include_keywords):
-            return (False, f"标题未含必须关键词: {job.title}")
+    # 4. include_keywords 不在列表级判定——列表页抓不到 JD，标题不含关键词
+    #    不代表 JD 不含（如标题'后端开发工程师'、JD 全是 Java/AI）。
+    #    必含关键词统一在详情级 _check_detail_hard 对 title+jd 判定，避免误杀。
 
     # 5. exclude_keywords：对 title+company（大小写不敏感）
     for kw in rules.exclude_keywords:
