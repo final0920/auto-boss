@@ -254,6 +254,12 @@ class PipelineRunner:
                     self._pause_geetest()
                     return
 
+                # ---- 锚点自愈：确保在列表页（上轮若卡在聊天/详情/弹窗，这里拉回）----
+                if not await asyncio.to_thread(driver.ensure_on_list):
+                    _runlog("runner_anchor", "未能回到列表页，跳过本轮重试", level="WARNING")
+                    await self._sleep(5)
+                    continue
+
                 # ---- 采集当前屏，取第一张未处理卡（抗列表重排）----
                 page_cards = await asyncio.to_thread(driver.scrape_page)
                 fresh = [c for c in page_cards

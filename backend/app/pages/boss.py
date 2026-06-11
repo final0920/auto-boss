@@ -276,6 +276,10 @@ class BossDriver:
         act = self.current_activity().lower()
         return any(k in act for k in VERIFY_KEYWORDS)
 
+    def is_chat_page(self) -> bool:
+        """聊天页判据：activity 含 'chat'（兼容 ChatRoomActivity / chat.single.activity 等）。"""
+        return "chat" in self.current_activity().lower()
+
     def tap_chat_and_capture(self) -> tuple[bool, str, str]:
         """点「立即沟通」→ 验证聊天页 → 抓实发招呼语（M3 投递动作）。
 
@@ -288,48 +292,62 @@ class BossDriver:
         btn = self.find_chat_button(detail)
         if btn is None:
             return False, "", "未找到沟通按钮"
-        if not self._tap_until(btn[0], btn[1], "ChatRoomActivity"):
+        # 点击并轮询是否进入聊天页（activity 含 chat，兼容多种聊天 activity）
+        entered = False
+        for _ in range(4):
+            self.dev.tap(btn[0], btn[1])
+            for _ in range(6):
+                time.sleep(0.6)
+                if self.is_chat_page():
+                    entered = True
+                    break
+            if entered:
+                break
+        if not entered:
             return False, "", "未跳转聊天页"
         chat = self.dump()
-        verified = False
         greeting = ""
         if chat is not None:
             texts: list[str] = []
             for n in chat.iter("node"):
                 t = n.attrib.get("text", "") or ""
-                if APPLY_OK_MARK in t:
-                    verified = True
                 if _rid_last(n.attrib.get("resource-id", "")) == RID_CHAT_MSG and t:
                     texts.append(t)
             if texts:
                 greeting = texts[-1]
-        ok = verified or "ChatRoomActivity" in self.current_activity()
-        return ok, greeting, "" if ok else "聊天页未验证"
+        # 进了聊天页即投递成功（用户开"自动打招呼"，进页=招呼已发）
+        return True, greeting, ""
 
     def tap_chat_and_verify(self) -> bool:
-        """点「立即沟通」(带重试)，验证进入聊天页且出现"由你发起的沟通"。"""
-        detail = self.dump()
-        if detail is None:
-            return False
-        btn = self.find_chat_button(detail)
-        if btn is None:
-            return False
-        if not self._tap_until(btn[0], btn[1], "ChatRoomActivity"):
-            return False
-        chat = self.dump()
-        if chat is not None:
-            for node in chat.iter("node"):
-                if APPLY_OK_MARK in (node.attrib.get("text", "") or ""):
-                    return True
-        return "ChatRoomActivity" in self.current_activity()
+        """点「立即沟通」验证进入聊天页（兼容 ChatRoom/ChatSingle）。"""
+        return self.tap_chat_and_capture()[0]
 
-    def back_to_list(self) -> None:
-        """从聊天/详情返回列表（最多按两次返回）。"""
-        self.dev.press_back()
-        time.sleep(1.0)
-        if "MainActivity" not in self.current_activity():
+    def back_to_list(self, max_back: int = 5) -> bool:
+        """返回列表页(MainActivity)，返回是否成功回到列表。
+
+        聊天页→详情页→列表页是多层栈，且聊天页可能有输入法/挽留弹窗吃掉返回键，
+        故循环按返回逐层退；若仍回不去（异常栈/卡死弹窗），兜底干净重启 Boss
+        回主页职位 tab，保证 runner 锚点不丢——这是健壮性关键。
+        """
+        for _ in range(max_back):
+            if "MainActivity" in self.current_activity():
+                return True
             self.dev.press_back()
             time.sleep(1.0)
+        if "MainActivity" in self.current_activity():
+            return True
+        # 兜底：返回键回不去 → 干净重启 Boss 回主页职位 tab
+        self.dev.am_force_stop(PACKAGE)
+        time.sleep(1.0)
+        self.dev.monkey_start(PACKAGE)
+        time.sleep(5.0)
+        return "MainActivity" in self.current_activity()
+
+    def ensure_on_list(self) -> bool:
+        """确保停在列表页锚点；不在则返回/重启回去。runner 每轮开头调用自愈。"""
+        if "MainActivity" in self.current_activity():
+            return True
+        return self.back_to_list()
 
     # ------------------------------------------------------------------
     # 详情页字段补全（D0 固化）
