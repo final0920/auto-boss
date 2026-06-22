@@ -19,7 +19,6 @@ interface DeviceContextValue {
   setActiveDevice: (device: Device | null) => void
   setDevices: (devices: Device[]) => void
   setDeviceMode: (deviceId: string, mode: DeviceMode) => void
-  updateDevice: (device: Device) => void
 }
 
 const DeviceContext = createContext<DeviceContextValue | null>(null)
@@ -35,14 +34,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setActiveDevice(prev => (prev?.id === deviceId ? { ...prev, mode } : prev))
   }, [])
 
-  const updateDevice = useCallback((device: Device) => {
-    setDevices(prev => prev.map(d => (d.id === device.id ? device : d)))
-    setActiveDevice(prev => (prev?.id === device.id ? device : prev))
-  }, [])
-
   return (
     <DeviceContext.Provider
-      value={{ devices, activeDevice, setActiveDevice, setDevices, setDeviceMode, updateDevice }}
+      value={{ devices, activeDevice, setActiveDevice, setDevices, setDeviceMode }}
     >
       {children}
     </DeviceContext.Provider>

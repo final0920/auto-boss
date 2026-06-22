@@ -2,7 +2,7 @@
 
 真机发现固化（2026-06-09 联调）：
 - MIUI 禁止普通 adb 的 input 注入(INJECT_EVENTS)，所有点击/滑动走 root(AdbDevice 已统一 su)。
-- uiautomator dump 走 root 最稳（不依赖 uiautomator2 server 的 wakeUp 注入）。
+- uiautomator dump 走 root 最稳（一次性命令，dump 完即释放）。
 - 列表页(MainActivity 职位tab)：rv_list 容器 + boss_job_card_view 卡片；
   字段 tv_position_name/tv_salary_statue/tv_company_name/tv_distance + fl_require_info 标签。
 - 详情页(BossJobPagerActivity)：tv_description(完整JD) + btn_chat(立即沟通) + iv_back。
@@ -98,13 +98,6 @@ class BossDriver:
     def __init__(self, serial: str) -> None:
         self.serial = serial
         self.dev = AdbDevice(serial)
-        self._u2 = None
-
-    def _u2dev(self):
-        if self._u2 is None:
-            import uiautomator2 as u2
-            self._u2 = u2.connect(self.serial)
-        return self._u2
 
     # ------------------------------------------------------------------
     # 设备准备：唤醒 + 解锁 + 保持唤醒 + 打开 Boss
@@ -205,22 +198,6 @@ class BossDriver:
         self.dev.humanized_swipe(540, 1800, 540, 700, steps=8, step_delay_ms=25)
         time.sleep(1.2)
 
-    def scrape_jobs(self, max_jobs: int = 20, max_scroll: int = 6) -> list[RawJob]:
-        """滚动采集去重后的 RawJob 列表（按 公司+职位 去重）。"""
-        seen: set[tuple[str, str]] = set()
-        result: list[RawJob] = []
-        for _ in range(max_scroll):
-            for card in self.scrape_page():
-                key = (card.raw.company, card.raw.title)
-                if key in seen:
-                    continue
-                seen.add(key)
-                result.append(card.raw)
-                if len(result) >= max_jobs:
-                    return result
-            self.scroll_list()
-        return result
-
     # ------------------------------------------------------------------
     # 投递动作：定位卡片 → 详情 → 读JD → 立即沟通 → 验证
     # ------------------------------------------------------------------
@@ -241,18 +218,6 @@ class BossDriver:
                 if target_kw in self.current_activity():
                     return True
         return False
-
-    def open_job_detail(self, card: "JobCard") -> Optional[str]:
-        """点开卡片进入详情页(带重试)，返回完整 JD(tv_description)。未进入返回 None。"""
-        if not self._tap_until(card.cx, card.cy, "JobPager"):
-            return None
-        detail = self.dump()
-        if detail is None:
-            return ""
-        for node in detail.iter("node"):
-            if _rid_last(node.attrib.get("resource-id", "")) == RID_JD:
-                return node.attrib.get("text", "")
-        return ""
 
     def find_chat_button(self, detail: ET.Element) -> Optional[tuple[int, int]]:
         """定位「立即沟通」按钮（位置/布局有多种，按控件特征而非硬坐标）。
@@ -317,10 +282,6 @@ class BossDriver:
                 greeting = texts[-1]
         # 进了聊天页即投递成功（用户开"自动打招呼"，进页=招呼已发）
         return True, greeting, ""
-
-    def tap_chat_and_verify(self) -> bool:
-        """点「立即沟通」验证进入聊天页（兼容 ChatRoom/ChatSingle）。"""
-        return self.tap_chat_and_capture()[0]
 
     def back_to_list(self, max_back: int = 5) -> bool:
         """返回列表页(MainActivity)，返回是否成功回到列表。
@@ -464,67 +425,3 @@ class BossDriver:
             if "立即沟通" in txt or "继续沟通" in txt:
                 return txt
         return ""
-
-    def apply_card(self, card: "JobCard") -> tuple[str, str]:
-        """对一张卡片完成投递：开详情→读JD→（未投递则）点立即沟通→验证→返回列表。
-
-        返回 (状态, JD)。状态 ∈ {成功, 失败, 已投递, 无沟通按钮, 未进详情}。
-        投递动作 = 点 btn_chat 跳聊天页，用户已开"自动打招呼"，Boss 自动发招呼语。
-        """
-        if not self._tap_until(card.cx, card.cy, "JobPager"):
-            return "未进详情", ""
-        detail = self.dump()
-        if detail is None:
-            self.back_to_list()
-            return "失败", ""
-        jd = ""
-        for node in detail.iter("node"):
-            if _rid_last(node.attrib.get("resource-id", "")) == RID_JD:
-                jd = node.attrib.get("text", "") or ""
-                break
-        if "继续沟通" in self.read_chat_button_label(detail):
-            self.back_to_list()
-            return "已投递", jd
-        btn = self.find_chat_button(detail)
-        if btn is None:
-            self.back_to_list()
-            return "无沟通按钮", jd
-        ok = self._tap_until(btn[0], btn[1], "ChatRoomActivity")
-        if ok:
-            chat = self.dump()
-            verified = chat is not None and any(
-                APPLY_OK_MARK in (n.attrib.get("text", "") or "") for n in chat.iter("node")
-            )
-            ok = verified or "ChatRoomActivity" in self.current_activity()
-        self.back_to_list()
-        return ("成功" if ok else "失败"), jd
-
-    def auto_apply_batch(
-        self, max_apply: int = 5, max_scroll: int = 4
-    ) -> list[tuple[RawJob, str]]:
-        """滚动采集并对未投递岗位逐个投递（点立即沟通）。
-
-        每轮重新采集当前屏，取第一个未处理卡片投递（抗列表重排），按
-        公司+职位 去重，命中"继续沟通"判为已投递跳过；达 max_apply 个成功即停。
-        返回 [(RawJob, 状态), ...] 投递记录。
-        """
-        seen: set[tuple[str, str]] = set()
-        results: list[tuple[RawJob, str]] = []
-        applied = 0
-        scrolls = 0
-        while applied < max_apply and scrolls <= max_scroll:
-            nxt: Optional[JobCard] = None
-            for c in self.scrape_page():
-                if (c.raw.company, c.raw.title) not in seen:
-                    nxt = c
-                    break
-            if nxt is None:
-                self.scroll_list()
-                scrolls += 1
-                continue
-            seen.add((nxt.raw.company, nxt.raw.title))
-            status, _jd = self.apply_card(nxt)
-            results.append((nxt.raw, status))
-            if status == "成功":
-                applied += 1
-        return results

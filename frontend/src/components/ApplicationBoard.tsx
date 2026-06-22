@@ -13,7 +13,7 @@ const STATUS_META: Record<ApplicationRecord['status'], { label: string; variant:
   DUP: { label: '已投过', variant: 'outline' },
 }
 
-export function StatusBadge({ status }: { status: ApplicationRecord['status'] }) {
+function StatusBadge({ status }: { status: ApplicationRecord['status'] }) {
   const meta = STATUS_META[status] ?? { label: status, variant: 'outline' as const }
   return <Badge variant={meta.variant}>{meta.label}</Badge>
 }

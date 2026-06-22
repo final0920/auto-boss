@@ -7,9 +7,7 @@ import pytest
 
 from app.adb._run import run_adb, run_adb_global, AdbResult
 from app.adb.device import AdbDevice
-from app.adb.inputs import ADBKeyboard
 from app.adb.screencap import screencap_png_bytes, _PNG_MAGIC
-from app.adb.appinfo import get_foreground_package, get_foreground_activity
 
 
 # ---------------------------------------------------------------------------
@@ -126,46 +124,6 @@ class TestAdbDevice:
 
 
 # ---------------------------------------------------------------------------
-# ADBKeyboard
-# ---------------------------------------------------------------------------
-
-class TestADBKeyboard:
-    def test_send_text_encodes_base64(self):
-        import base64
-        with patch("app.adb.inputs.run_adb", return_value=AdbResult(0, "", "")) as mock:
-            kb = ADBKeyboard("TEST001")
-            kb.send_text("你好")
-        # 找到 am broadcast 调用
-        broadcast_calls = [
-            c for c in mock.call_args_list
-            if "broadcast" in " ".join(c[0][1])
-        ]
-        assert broadcast_calls, "未找到 am broadcast 调用"
-        # 检查 base64 payload
-        all_args = " ".join(broadcast_calls[-1][0][1])
-        expected_b64 = base64.b64encode("你好".encode("utf-8")).decode("ascii")
-        assert expected_b64 in all_args
-
-    def test_context_manager_activates_and_restores(self):
-        with patch("app.adb.inputs.run_adb", return_value=AdbResult(0, "com.prev.ime", "")) as mock:
-            with ADBKeyboard("TEST001") as kb:
-                kb.send_text("test")
-        # activate: ime set + send; restore: ime set
-        ime_calls = [
-            c for c in mock.call_args_list
-            if "ime set" in " ".join(c[0][1])
-        ]
-        assert len(ime_calls) >= 2, "应有激活和恢复两次 ime set"
-
-    def test_clear_text(self):
-        with patch("app.adb.inputs.run_adb", return_value=AdbResult(0, "", "")) as mock:
-            kb = ADBKeyboard("TEST001")
-            kb.clear_text()
-        calls_str = [" ".join(c[0][1]) for c in mock.call_args_list]
-        assert any("ADB_CLEAR_TEXT" in s for s in calls_str)
-
-
-# ---------------------------------------------------------------------------
 # screencap
 # ---------------------------------------------------------------------------
 
@@ -190,28 +148,3 @@ class TestScreencap:
         with patch("subprocess.run", return_value=_make_proc(stdout=bad)):
             with pytest.raises(RuntimeError, match="screencap 连续"):
                 screencap_png_bytes("S1", retries=2, retry_delay=0)
-
-
-# ---------------------------------------------------------------------------
-# appinfo
-# ---------------------------------------------------------------------------
-
-class TestAppInfo:
-    _WINDOW_OUTPUT = (
-        "mCurrentFocus=Window{abc u0 com.hpbr.bosszhipin/com.hpbr.bosszhipin.MainActivity}"
-    )
-
-    def test_get_foreground_package(self):
-        with patch("app.adb.appinfo.run_adb", return_value=AdbResult(0, self._WINDOW_OUTPUT, "")):
-            pkg = get_foreground_package("S1")
-        assert pkg == "com.hpbr.bosszhipin"
-
-    def test_get_foreground_activity(self):
-        with patch("app.adb.appinfo.run_adb", return_value=AdbResult(0, self._WINDOW_OUTPUT, "")):
-            act = get_foreground_activity("S1")
-        assert act == "com.hpbr.bosszhipin/com.hpbr.bosszhipin.MainActivity"
-
-    def test_returns_none_on_no_match(self):
-        with patch("app.adb.appinfo.run_adb", return_value=AdbResult(0, "no match here", "")):
-            pkg = get_foreground_package("S1")
-        assert pkg is None

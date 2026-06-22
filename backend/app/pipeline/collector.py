@@ -7,7 +7,7 @@ collector — 抓取岗位并去重，建 Application(PENDING)。
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlmodel import Session, select

@@ -7,7 +7,6 @@ interface ScrcpyPlayerProps {
   deviceId: string
   /** false 时在画面上叠加"仅手动"遮罩 */
   interactive: boolean
-  onTap?: (x: number, y: number) => void
 }
 
 /** 截图轮询降级路径（WebCodecs 不可用时启用） */
@@ -45,7 +44,7 @@ function containsH264Keyframe(buf: Uint8Array): boolean {
   return false
 }
 
-export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps) {
+export function ScrcpyPlayer({ deviceId, interactive }: ScrcpyPlayerProps) {
   const { t } = useI18n()
   // 挂载点 div，解码器渲染器的 canvas 会直接插入其中
   const containerRef = useRef<HTMLDivElement>(null)
@@ -140,15 +139,6 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
     }
   }, [deviceId, fallback, goFallback])
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!interactive || !onTap) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    onTap(
-      (e.clientX - rect.left) / rect.width,
-      (e.clientY - rect.top) / rect.height,
-    )
-  }
-
   // 截图降级路径
   if (fallback) {
     return (
@@ -167,7 +157,6 @@ export function ScrcpyPlayer({ deviceId, interactive, onTap }: ScrcpyPlayerProps
 
   return (
     <div
-      onClick={handleClick}
       className={cn(
         'relative rounded-2xl overflow-hidden border border-border/60',
         interactive ? 'cursor-crosshair' : 'cursor-not-allowed',

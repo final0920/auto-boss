@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 from app.adb._run import run_adb_global
 
@@ -82,53 +81,3 @@ def list_usb_devices() -> list[DeviceInfo]:
         d for d in list_devices()
         if d.transport == "usb" and d.online and not d.serial.startswith("emulator-")
     ]
-
-
-def connect_usb(serial: Optional[str] = None) -> DeviceInfo:
-    """返回第一个（或指定 serial 的）USB 在线设备；不发起 TCP 连接。"""
-    devices = list_usb_devices()
-    if not devices:
-        raise RuntimeError("未检测到 USB 在线设备，请确认 USB 调试已开启并连接。")
-    if serial:
-        for d in devices:
-            if d.serial == serial:
-                return d
-        raise RuntimeError(f"未找到 serial={serial} 的 USB 在线设备。")
-    return devices[0]
-
-
-def ensure_online(serial: str, retries: int = 3) -> bool:
-    """等待设备上线；返回 True 表示在线。"""
-    import time
-
-    for _ in range(retries):
-        devices = list_devices()
-        for d in devices:
-            if d.serial == serial and d.online:
-                return True
-        time.sleep(1)
-    return False
-
-
-# ---------------------------------------------------------------------------
-# AdbConnection — 绑定 serial 的连接句柄
-# ---------------------------------------------------------------------------
-
-
-class AdbConnection:
-    """绑定单台设备 serial 的连接句柄，供上层模块使用。"""
-
-    def __init__(self, serial: str):
-        self.serial = serial
-
-    @classmethod
-    def from_usb(cls, serial: Optional[str] = None) -> "AdbConnection":
-        """从 USB 设备列表中选取连接句柄（默认首台）。"""
-        info = connect_usb(serial)
-        return cls(info.serial)
-
-    def is_online(self) -> bool:
-        return ensure_online(self.serial, retries=1)
-
-    def __repr__(self) -> str:
-        return f"AdbConnection(serial={self.serial!r})"

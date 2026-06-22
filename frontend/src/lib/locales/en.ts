@@ -33,31 +33,7 @@ export const en: I18nKeys = {
   },
   screen: {
     title: 'Screen Mirror',
-    manualOnly: 'Control only available in MANUAL mode',
-    switchManual: 'Switch to Manual',
-    screenshot: 'Screenshot',
     fallback: 'Screenshot fallback mode',
-  },
-  jobs: {
-    title: 'Job Feed',
-    score: 'Score',
-    reason: 'Reason',
-    blacklist: 'Blacklist',
-    pin: 'Pin',
-    fetch: 'Fetch',
-  },
-  applications: {
-    title: 'Application Board',
-    status: {
-      PENDING: 'Pending',
-      CLAIMED: 'Claimed',
-      SENDING: 'Sending',
-      SENT: 'Sent',
-      FAILED: 'Failed',
-    },
-    pendingConfirm: 'Pending Manual Confirm',
-    confirmSent: 'Confirm Sent',
-    confirmNotSent: 'Confirm Not Sent',
   },
   inbox: {
     title: 'HR Inbox',
@@ -114,15 +90,6 @@ export const en: I18nKeys = {
       '30': 'Within 30 days',
     },
   },
-  logs: {
-    title: 'Logs & Cost',
-    vlmCost: 'VLM Cost',
-    vlmBudget: 'VLM Budget',
-    vlmFused: 'Circuit Breaker',
-    backendSwitch: 'Backend Switch',
-    pause: 'Pause',
-    trace: 'Trace',
-  },
   settings: {
     title: 'Settings',
     modelConfig: 'Model Config',
@@ -132,13 +99,5 @@ export const en: I18nKeys = {
     language: 'Language',
     theme: 'Theme',
     save: 'Save',
-  },
-  common: {
-    loading: 'Loading...',
-    error: 'Error',
-    retry: 'Retry',
-    cancel: 'Cancel',
-    confirm: 'Confirm',
-    close: 'Close',
   },
 }

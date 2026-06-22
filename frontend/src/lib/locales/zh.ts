@@ -31,31 +31,7 @@ export const zh = {
   },
   screen: {
     title: '投屏',
-    manualOnly: '仅手动模式可操控',
-    switchManual: '切换手动模式',
-    screenshot: '截图',
     fallback: '截图降级模式',
-  },
-  jobs: {
-    title: '岗位流',
-    score: '评分',
-    reason: '理由',
-    blacklist: '加黑',
-    pin: '置顶',
-    fetch: '抓取',
-  },
-  applications: {
-    title: '投递看板',
-    status: {
-      PENDING: '待处理',
-      CLAIMED: '已认领',
-      SENDING: '发送中',
-      SENT: '已发送',
-      FAILED: '失败',
-    },
-    pendingConfirm: '待人工确认',
-    confirmSent: '确认已发',
-    confirmNotSent: '确认未发',
   },
   inbox: {
     title: 'HR 收件箱',
@@ -112,15 +88,6 @@ export const zh = {
       '30': '30 天内',
     },
   },
-  logs: {
-    title: '日志与成本',
-    vlmCost: 'VLM 成本',
-    vlmBudget: 'VLM 预算',
-    vlmFused: '熔断状态',
-    backendSwitch: '后端切换',
-    pause: '暂停',
-    trace: '追踪',
-  },
   settings: {
     title: '设置',
     modelConfig: '模型配置',
@@ -130,14 +97,6 @@ export const zh = {
     language: '语言',
     theme: '主题',
     save: '保存',
-  },
-  common: {
-    loading: '加载中...',
-    error: '出错了',
-    retry: '重试',
-    cancel: '取消',
-    confirm: '确认',
-    close: '关闭',
   },
 }
 

@@ -1,24 +1,20 @@
 """
-LLM 客户端 — gpt-5.5 统一封装（文本 + 多模态）。
+LLM 客户端 — gpt-5.5 统一封装（文本推理）。
 
 规则：
   - 使用 settings 中的 base_url/api_key 构造 openai.OpenAI。
   - chat() 支持文本推理（reasoning_effort）和可选 JSON 模式。
-  - locate() 发送截图 + 指令，返回 0-1000 归一化坐标 (x, y)。
   - Authorization/key 不写入日志。
   - 临时错误（限速/服务端错误）自动重试；客户端错误快速失败。
 """
 from __future__ import annotations
 
-import base64
 import logging
 import time
-from io import BytesIO
 from typing import Any
 
 import openai
 from openai import OpenAI
-from PIL.Image import Image
 
 from app.config import settings
 
@@ -107,50 +103,6 @@ class LLMClient:
         logger.error("LLM chat 重试 %d 次后仍失败", _MAX_RETRIES)
         raise last_exc  # type: ignore[misc]
 
-    # ------------------------------------------------------------------
-    # Vision / locate interface
-    # ------------------------------------------------------------------
-
-    def locate(self, image: Image, instruction: str) -> tuple[int, int]:
-        """Given a screenshot and an instruction, return (x, y) in 0-1000 space.
-
-        The model is expected to reply with JSON: {"x": <0-1000>, "y": <0-1000>}.
-
-        Args:
-            image: PIL Image of the device screen.
-            instruction: Natural-language description of the target element.
-
-        Returns:
-            (x, y) normalised coordinates in [0, 1000].
-
-        Raises:
-            ValueError: If the model response cannot be parsed as valid coordinates.
-            openai.OpenAIError: After all retries are exhausted.
-        """
-        img_b64 = _pil_to_b64(image)
-        messages: list[dict[str, Any]] = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            f"{instruction}\n\n"
-                            "Reply with ONLY valid JSON in this exact format: "
-                            '{"x": <integer 0-1000>, "y": <integer 0-1000>}'
-                        ),
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{img_b64}"},
-                    },
-                ],
-            }
-        ]
-
-        raw = self.chat(messages, json_mode=True)
-        return _parse_coords(raw)
-
 
 # ------------------------------------------------------------------
 # 模块级单例（惰性初始化，跨调用方复用）
@@ -165,30 +117,3 @@ def get_client() -> LLMClient:
     if _client_instance is None:
         _client_instance = LLMClient()
     return _client_instance
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-def _pil_to_b64(image: Image) -> str:
-    buf = BytesIO()
-    image.save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-def _parse_coords(raw: str) -> tuple[int, int]:
-    """Parse {"x": ..., "y": ...} JSON and validate 0-1000 range."""
-    import json
-
-    try:
-        data = json.loads(raw)
-        x = int(data["x"])
-        y = int(data["y"])
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-        raise ValueError(f"Cannot parse locate response: {raw!r}") from exc
-
-    if not (0 <= x <= 1000 and 0 <= y <= 1000):
-        raise ValueError(f"Coordinates out of 0-1000 range: x={x}, y={y}")
-
-    return x, y

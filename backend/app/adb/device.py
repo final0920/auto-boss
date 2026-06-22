@@ -1,39 +1,14 @@
 """adb 设备操作原语 — tap/swipe/motionevent/keyevent/monkey。
 
-所有操作走非特权命令，不使用 root/su，中文输入走 ADBKeyboard（inputs.py）。
+所有操作走非特权命令，不使用 root/su。
 """
 
 from __future__ import annotations
 
-import re
 import time
-from dataclasses import dataclass
 from typing import Sequence
 
 from app.adb._run import run_adb, AdbResult
-
-
-# ---------------------------------------------------------------------------
-# 数据类型
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class Point:
-    x: int
-    y: int
-
-
-@dataclass
-class SwipeGesture:
-    start: Point
-    end: Point
-    duration_ms: int = 300  # 默认 300ms，拟人化：调用方可随机化
-
-
-# ---------------------------------------------------------------------------
-# AdbDevice — 绑定 serial 的设备操作句柄
-# ---------------------------------------------------------------------------
 
 
 class AdbDevice:
@@ -73,13 +48,6 @@ class AdbDevice:
         """adb shell input swipe x1 y1 x2 y2 [duration_ms]"""
         return self._shell_su(f"input swipe {x1} {y1} {x2} {y2} {duration_ms}")
 
-    def swipe_gesture(self, gesture: SwipeGesture) -> AdbResult:
-        return self.swipe(
-            gesture.start.x, gesture.start.y,
-            gesture.end.x, gesture.end.y,
-            gesture.duration_ms,
-        )
-
     # ------------------------------------------------------------------
     # motionevent — 更拟人的多点触摸序列（抗检测）
     # 协议：sendevent 走 input keyevent / motionevent 走 exec-out
@@ -94,12 +62,6 @@ class AdbDevice:
 
     def motionevent_up(self, x: int, y: int) -> AdbResult:
         return self._shell_su(f"input motionevent UP {x} {y}")
-
-    def humanized_tap(self, x: int, y: int, hold_ms: int = 80) -> None:
-        """DOWN → 短暂停顿 → UP，比 input tap 更像真实触摸。"""
-        self.motionevent_down(x, y)
-        time.sleep(hold_ms / 1000.0)
-        self.motionevent_up(x, y)
 
     def humanized_swipe(
         self,
@@ -130,12 +92,6 @@ class AdbDevice:
     def press_back(self) -> AdbResult:
         return self.keyevent(4)  # KEYCODE_BACK
 
-    def press_home(self) -> AdbResult:
-        return self.keyevent(3)  # KEYCODE_HOME
-
-    def press_enter(self) -> AdbResult:
-        return self.keyevent(66)  # KEYCODE_ENTER
-
     # ------------------------------------------------------------------
     # 应用启动
     # ------------------------------------------------------------------
@@ -147,22 +103,8 @@ class AdbDevice:
             timeout=15.0,
         )
 
-    def am_start(self, package: str, activity: str) -> AdbResult:
-        """am start 指定 Activity。"""
-        return self._shell(f"am start -n {package}/{activity}", timeout=15.0)
-
     def am_force_stop(self, package: str) -> AdbResult:
         return self._shell(f"am force-stop {package}", timeout=10.0)
-
-    # ------------------------------------------------------------------
-    # 滚动
-    # ------------------------------------------------------------------
-
-    def scroll_down(self, x: int = 540, y_start: int = 1400, y_end: int = 400, duration_ms: int = 400) -> AdbResult:
-        return self.swipe(x, y_start, x, y_end, duration_ms)
-
-    def scroll_up(self, x: int = 540, y_start: int = 400, y_end: int = 1400, duration_ms: int = 400) -> AdbResult:
-        return self.swipe(x, y_start, x, y_end, duration_ms)
 
     # ------------------------------------------------------------------
     # dumpsys
@@ -170,23 +112,6 @@ class AdbDevice:
 
     def dumpsys(self, service: str, *, timeout: float = 10.0) -> AdbResult:
         return self._shell(f"dumpsys {service}", timeout=timeout, check=False)
-
-    # ------------------------------------------------------------------
-    # 屏幕尺寸（归一化坐标 → 像素换算用）
-    # ------------------------------------------------------------------
-
-    def screen_size(self) -> tuple[int, int]:
-        """返回当前显示分辨率 (width, height)，优先 Override（用户改过分辨率时）。
-
-        wm size 输出：Physical size: 1440x3200 / Override size: 1080x2400
-        """
-        r = self._shell("wm size", check=False)
-        text = r.stdout or ""
-        m = re.search(r"Override size:\s*(\d+)x(\d+)", text) or \
-            re.search(r"Physical size:\s*(\d+)x(\d+)", text)
-        if m:
-            return int(m.group(1)), int(m.group(2))
-        return 1080, 2400  # 兜底
 
     def __repr__(self) -> str:
         return f"AdbDevice(serial={self.serial!r})"
