@@ -26,6 +26,7 @@ import subprocess
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
+from app.adb._run import adb_exe
 from app.scrcpy.protocol import DeviceInfo, FrameReader, VideoFrame
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ class ScrcpyStreamer:
         """将 scrcpy-server.jar push 到设备临时目录（同步 subprocess + 线程）。"""
         def _run() -> "subprocess.CompletedProcess[bytes]":
             return subprocess.run(
-                ["adb", "-s", self.serial, "push", str(jar), _DEVICE_SERVER_PATH],
+                [adb_exe(), "-s", self.serial, "push", str(jar), _DEVICE_SERVER_PATH],
                 capture_output=True,
             )
         proc = await asyncio.to_thread(_run)
@@ -115,7 +116,7 @@ class ScrcpyStreamer:
         """建立 adb forward tcp 映射（同步 subprocess + 线程）。"""
         def _run() -> "subprocess.CompletedProcess[bytes]":
             return subprocess.run(
-                ["adb", "-s", self.serial, "forward",
+                [adb_exe(), "-s", self.serial, "forward",
                  f"tcp:{self.LOCAL_PORT}", "localabstract:scrcpy"],
                 capture_output=True,
             )
@@ -128,7 +129,7 @@ class ScrcpyStreamer:
     async def _remove_forward(self) -> None:
         def _run() -> None:
             subprocess.run(
-                ["adb", "-s", self.serial, "forward", "--remove",
+                [adb_exe(), "-s", self.serial, "forward", "--remove",
                  f"tcp:{self.LOCAL_PORT}"],
                 capture_output=True,
             )
@@ -161,7 +162,7 @@ class ScrcpyStreamer:
             "cleanup=true",
         ])
         cmd = [
-            "adb", "-s", self.serial,
+            adb_exe(), "-s", self.serial,
             "shell",
             f"CLASSPATH={_DEVICE_SERVER_PATH}",
             "app_process", "/",

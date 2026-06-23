@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch, call
 import pytest
 
-from app.adb._run import run_adb, run_adb_global, AdbResult
+from app.adb._run import run_adb, run_adb_global, AdbResult, adb_exe
 from app.adb.device import AdbDevice
 from app.adb.screencap import screencap_png_bytes, _PNG_MAGIC
 
@@ -32,7 +32,7 @@ class TestRunAdb:
             result = run_adb("ABC123", ["shell", "input", "tap", "100", "200"])
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
-        assert cmd == ["adb", "-s", "ABC123", "shell", "input", "tap", "100", "200"]
+        assert cmd == [adb_exe(), "-s", "ABC123", "shell", "input", "tap", "100", "200"]
 
     def test_returns_adb_result(self):
         with patch("subprocess.run", return_value=_make_proc(b"hello\n")):
@@ -69,7 +69,7 @@ class TestRunAdbGlobal:
             run_adb_global(["devices"])
         cmd = mock_run.call_args[0][0]
         assert "-s" not in cmd
-        assert cmd == ["adb", "devices"]
+        assert cmd == [adb_exe(), "devices"]
 
 
 # ---------------------------------------------------------------------------

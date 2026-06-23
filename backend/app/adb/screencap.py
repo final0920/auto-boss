@@ -6,6 +6,8 @@ import subprocess
 import time
 from typing import Optional
 
+from app.adb._run import adb_exe
+
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
@@ -21,7 +23,7 @@ def screencap_png_bytes(
     - 校验 PNG magic bytes，失败则重试。
     - 不写临时文件，直接返回内存中的 bytes。
     """
-    cmd = ["adb", "-s", serial, "exec-out", "screencap", "-p"]
+    cmd = [adb_exe(), "-s", serial, "exec-out", "screencap", "-p"]
     last_err: Optional[Exception] = None
 
     for attempt in range(retries):

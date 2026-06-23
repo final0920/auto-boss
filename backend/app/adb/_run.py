@@ -2,9 +2,30 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Optional, Sequence
+
+
+@lru_cache(maxsize=1)
+def adb_exe() -> str:
+    """解析 adb 可执行文件路径。
+
+    优先用项目依赖 adbutils 自带的 adb.exe（随 .venv 一定安装），回退系统
+    PATH 的 adb。这样无需用户单独安装 platform-tools 或把 adb 配进 PATH，
+    在任意 shell（PowerShell/cmd/bash）启动后端都能用。
+    """
+    try:
+        import adbutils
+        p = adbutils.adb_path()
+        if p and os.path.isfile(p):
+            return p
+    except Exception:
+        pass
+    return shutil.which("adb") or "adb"
 
 
 @dataclass
@@ -31,7 +52,7 @@ def run_adb(
     所有 adb 调用必须经此函数，禁止直接 subprocess.run(['adb', ...])，
     方便测试时 mock 整个入口。
     """
-    cmd = ["adb", "-s", serial] + list(args)
+    cmd = [adb_exe(), "-s", serial] + list(args)
     try:
         proc = subprocess.run(
             cmd,
@@ -65,7 +86,7 @@ def run_adb_global(
     check: bool = True,
 ) -> AdbResult:
     """不带 -s serial 的全局 adb 命令（如 devices、start-server）。"""
-    cmd = ["adb"] + list(args)
+    cmd = [adb_exe()] + list(args)
     try:
         proc = subprocess.run(
             cmd,
