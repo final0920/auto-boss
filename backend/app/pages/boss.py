@@ -225,14 +225,16 @@ class BossDriver:
         c = self._find_node_center(detail, RID_CHAT_BTN)
         if c is not None:
             return c
+        keys = ("立即沟通", "继续沟通", "打招呼")
+        # clickable 优先（text + content-desc 都看，兼容图标按钮把文案放 desc）
         for node in detail.iter("node"):
-            txt = node.attrib.get("text", "") or ""
-            if ("立即沟通" in txt or "继续沟通" in txt) and node.attrib.get("clickable") == "true":
+            t = (node.attrib.get("text", "") or "") + (node.attrib.get("content-desc", "") or "")
+            if any(k in t for k in keys) and node.attrib.get("clickable") == "true":
                 return _bounds_center(node.attrib.get("bounds", ""))
         # 再兜底：不限 clickable
         for node in detail.iter("node"):
-            txt = node.attrib.get("text", "") or ""
-            if "立即沟通" in txt or "继续沟通" in txt:
+            t = (node.attrib.get("text", "") or "") + (node.attrib.get("content-desc", "") or "")
+            if any(k in t for k in keys):
                 return _bounds_center(node.attrib.get("bounds", ""))
         return None
 
@@ -251,11 +253,25 @@ class BossDriver:
         返回 (ok, greeting, fail_reason)。前置：当前停在目标岗位详情页。
         greeting 取聊天页最后一条 tv_content_text（Boss"自动打招呼"发出的文本）。
         """
-        detail = self.dump()
-        if detail is None:
-            return False, "", "详情页 dump 失败"
-        btn = self.find_chat_button(detail)
+        # dump + 找按钮带重试：详情页底部固定栏(cl_chat/btn_chat)在刚跳转或有
+        # 加载动画时，uiautomator dump 偶发抓不全，撞上空窗会找不到按钮——
+        # 重试几次让页面 settle（read_chat_button_label 此前已确认按钮存在）。
+        btn = None
+        for _ in range(4):
+            detail = self.dump()
+            if detail is not None:
+                btn = self.find_chat_button(detail)
+                if btn is not None:
+                    break
+            time.sleep(0.8)
         if btn is None:
+            # 存最后一次 dump 供诊断（_rd_ 前缀走 .gitignore），下次失败可精准定位
+            try:
+                import shutil
+                shutil.copy(f"_boss_ui_{self.serial}.xml",
+                            f"_rd_nobtn_{int(time.time())}.xml")
+            except Exception:
+                pass
             return False, "", "未找到沟通按钮"
         # 点击并轮询是否进入聊天页（activity 含 chat，兼容多种聊天 activity）
         entered = False
