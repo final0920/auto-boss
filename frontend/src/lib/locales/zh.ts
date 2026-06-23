@@ -67,8 +67,11 @@ export const zh = {
     dailyLimit: '每日上限',
     intervalMinSec: '最小间隔 (s)',
     intervalMaxSec: '最大间隔 (s)',
-    nightStopStart: '夜停开始',
-    nightStopEnd: '夜停结束',
+    workWindow: '投递时段（仅时段内投递，段外暂停）',
+    morningStart: '上午开始',
+    morningEnd: '上午停止',
+    afternoonStart: '下午开始',
+    afternoonEnd: '下午停止',
     tagInputPlaceholder: '输入后回车添加',
     degreeOptions: {
       '': '不限',

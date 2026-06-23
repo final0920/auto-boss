@@ -74,8 +74,10 @@ export interface RulesConfig {
   daily_limit: number
   interval_min_sec: number
   interval_max_sec: number
-  night_stop_start: string
-  night_stop_end: string
+  morning_start: string
+  morning_end: string
+  afternoon_start: string
+  afternoon_end: string
 }
 
 export function getRules(): Promise<RulesConfig> {

@@ -4,8 +4,8 @@
 RUNNING 子态：
   - applying（投递+巡检）：滚动采集→prefilter→[开详情→DUP预检→补全→screen→dispatch_one]
     →回列表，卡间 interval；每 K 卡或超时插一轮巡检。
-  - inbox_only（仅巡检）：daily_limit 满或夜停时停投不滚列表，按 inbox_poll 固定轮询，
-    每轮循环开头重算（配额跨日归零/夜停结束自动回 applying）。
+  - inbox_only（仅巡检）：daily_limit 满或非工作时段停投不滚列表，按 inbox_poll 固定轮询，
+    每轮循环开头重算（配额跨日归零/进入工作时段自动回 applying）。
 
 生命周期（A11）：
   - 单例，持 Task 句柄；start() 幂等——活跃 Task 存在则拒绝（API 返 409，防双驱动）。
@@ -231,13 +231,13 @@ class PipelineRunner:
             try:
                 rules = _load_rules()
 
-                # ---- 子态重算（每轮开头：夜停/配额，跨日自动归零）----
+                # ---- 子态重算（每轮开头：工作时段/配额，跨日自动归零）----
                 quota = await rate_limiter.get_quota(daily_limit=rules.daily_limit)
                 quota_left = rules.daily_limit - quota["apply_count"]
-                if dispatcher.is_night_stop(rules) or quota_left <= 0:
+                if not dispatcher.is_within_work_window(rules) or quota_left <= 0:
                     if self.sub_state != "inbox_only":
                         _runlog("runner_substate",
-                                f"进入仅巡检子态（夜停或配额满，今日余 {quota_left}）")
+                                f"进入仅巡检子态（非工作时段或配额满，今日余 {quota_left}）")
                         self.sub_state = "inbox_only"
                     n = await asyncio.to_thread(inbox_watcher.poll_once, driver)
                     self.stats["inbox_new"] += n

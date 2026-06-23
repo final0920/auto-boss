@@ -45,8 +45,12 @@ class RulesConfig(BaseModel):
     daily_limit: int = 100
     interval_min_sec: int = 20
     interval_max_sec: int = 90
-    night_stop_start: str = "23:00"
-    night_stop_end: str = "07:00"
+    # 两阶段工作时段：仅在上午/下午窗口内投递，窗口外暂停投递（仍巡检）。
+    # 某段 start==end 视为该段禁用；两段都禁用 = 不限时段（全天可投）。
+    morning_start: str = "09:00"
+    morning_end: str = "12:00"
+    afternoon_start: str = "14:00"
+    afternoon_end: str = "18:00"
 
 
 _RULES_KEY = "rules"
@@ -59,9 +63,11 @@ def load_rules(session: Session) -> RulesConfig:
         return RulesConfig()
     try:
         data = json.loads(row.value)
-        # extra="forbid" 会拒绝未知字段；用 model_validate 而非 parse_raw
-        # 对旧数据宽容：先用 ignore 模式解析，再重新序列化为严格对象
-        return RulesConfig.model_validate(data)
+        # 向后兼容 schema 演进：过滤掉 RulesConfig 已不存在的旧字段（如 night_stop_*），
+        # 避免 extra="forbid" 因未知字段整体回退默认而丢失用户其它配置；
+        # 新增字段缺失时由 pydantic 默认值补全。
+        known = set(RulesConfig.model_fields)
+        return RulesConfig.model_validate({k: v for k, v in data.items() if k in known})
     except Exception as exc:
         logger.warning("rules.load_rules: 解析失败，回退默认值。原因: %s", exc)
         return RulesConfig()

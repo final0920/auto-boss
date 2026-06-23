@@ -81,8 +81,10 @@ def make_rules(**kwargs) -> RulesConfig:
         daily_limit=100,
         interval_min_sec=20,
         interval_max_sec=90,
-        night_stop_start="23:00",
-        night_stop_end="07:00",
+        morning_start="09:00",
+        morning_end="12:00",
+        afternoon_start="14:00",
+        afternoon_end="18:00",
     )
     defaults.update(kwargs)
     return RulesConfig(**defaults)

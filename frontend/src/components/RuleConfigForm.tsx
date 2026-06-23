@@ -307,24 +307,29 @@ export function RuleConfigForm({ config, loading, onChange }: RuleConfigFormProp
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">{t.rules.nightStopStart}</label>
-              <Input
-                type="time"
-                value={config.night_stop_start}
-                disabled={loading}
-                onChange={e => onChange('night_stop_start', e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">{t.rules.nightStopEnd}</label>
-              <Input
-                type="time"
-                value={config.night_stop_end}
-                disabled={loading}
-                onChange={e => onChange('night_stop_end', e.target.value)}
-              />
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">{t.rules.workWindow}</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t.rules.morningStart}</label>
+                <Input type="time" value={config.morning_start} disabled={loading}
+                  onChange={e => onChange('morning_start', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t.rules.morningEnd}</label>
+                <Input type="time" value={config.morning_end} disabled={loading}
+                  onChange={e => onChange('morning_end', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t.rules.afternoonStart}</label>
+                <Input type="time" value={config.afternoon_start} disabled={loading}
+                  onChange={e => onChange('afternoon_start', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">{t.rules.afternoonEnd}</label>
+                <Input type="time" value={config.afternoon_end} disabled={loading}
+                  onChange={e => onChange('afternoon_end', e.target.value)} />
+              </div>
             </div>
           </div>
         </CardContent>

@@ -45,8 +45,10 @@ EXPECTED_FIELDS = {
     "daily_limit",
     "interval_min_sec",
     "interval_max_sec",
-    "night_stop_start",
-    "night_stop_end",
+    "morning_start",
+    "morning_end",
+    "afternoon_start",
+    "afternoon_end",
     "llm_enabled",
 }
 
@@ -78,8 +80,8 @@ class TestRulesConfigDefaults:
         assert rc.daily_limit == 100
         assert rc.interval_min_sec == 20
         assert rc.interval_max_sec == 90
-        assert rc.night_stop_start == "23:00"
-        assert rc.night_stop_end == "07:00"
+        assert rc.morning_start == "09:00"
+        assert rc.afternoon_end == "18:00"
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +115,8 @@ class TestRulesRoundTrip:
             daily_limit=50,
             interval_min_sec=30,
             interval_max_sec=120,
-            night_stop_start="22:00",
-            night_stop_end="08:00",
+            morning_start="08:00",
+            afternoon_end="19:00",
         )
         save_rules(session, rc)
         loaded = load_rules(session)

@@ -7,7 +7,7 @@ dispatcher — 两阶段幂等投递（slim-v3 §3，唯一投递权威）。
   - dispatch_one 只取 CLAIMED；先写 SENDING 再设备操作，回写 SENT/FAILED
   - 永不自动重拾 SENDING（崩溃恢复由 scan_sending() 推人工确认）
   - 任何发送必经 RateLimiter.check_and_consume_apply(rules.daily_limit)
-  - 夜停读 RulesConfig（与 runner 子态判定同一真值源）
+  - 工作时段读 RulesConfig（与 runner 子态判定同一真值源）
 """
 from __future__ import annotations
 
@@ -34,15 +34,32 @@ def _parse_hhmm(s: str, default: dtime) -> dtime:
         return default
 
 
-def is_night_stop(rules: RulesConfig) -> bool:
-    """夜停判定。读 rules.night_stop_*（与 runner 共用同一真值源）。"""
-    start = _parse_hhmm(rules.night_stop_start, dtime(23, 0))
-    end = _parse_hhmm(rules.night_stop_end, dtime(7, 0))
+def _in_window(now: dtime, start_s: str, end_s: str) -> bool:
+    """now 是否落在 [start, end] 时间窗内；start==end 视为该窗禁用(False)。"""
+    s = _parse_hhmm(start_s, dtime(0, 0))
+    e = _parse_hhmm(end_s, dtime(0, 0))
+    if s == e:
+        return False
+    if s <= e:
+        return s <= now <= e
+    return now >= s or now <= e  # 跨午夜兼容
+
+
+def is_within_work_window(rules: RulesConfig) -> bool:
+    """是否在上午或下午工作时段内（窗口内才允许投递）。
+
+    两段都禁用（start==end）= 不限时段，始终允许投递。
+    与 runner 子态判定共用同一真值源。
+    """
+    windows = [
+        (rules.morning_start, rules.morning_end),
+        (rules.afternoon_start, rules.afternoon_end),
+    ]
+    active = [(s, e) for s, e in windows if s != e]
+    if not active:
+        return True
     now = datetime.now().time()
-    if start <= end:
-        return start <= now <= end
-    # 跨午夜
-    return now >= start or now <= end
+    return any(_in_window(now, s, e) for s, e in active)
 
 
 def _log(session: Session, event: str, message: str,
@@ -112,8 +129,8 @@ async def dispatch_one(
     返回 "SENT" | "FAILED" | "SKIP"。
     前置：runner 已完成 DUP 预检（"继续沟通"不会进入本函数）且人在详情页。
     """
-    # --- 夜停（双保险：runner 子态已挡，此处兜底）---
-    if is_night_stop(rules):
+    # --- 工作时段（双保险：runner 子态已挡，此处兜底）---
+    if not is_within_work_window(rules):
         return "SKIP"
 
     # --- 配额检查（唯一入口）---

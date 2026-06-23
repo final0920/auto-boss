@@ -69,8 +69,11 @@ export const en: I18nKeys = {
     dailyLimit: 'Daily Limit',
     intervalMinSec: 'Min Interval (s)',
     intervalMaxSec: 'Max Interval (s)',
-    nightStopStart: 'Night Stop Start',
-    nightStopEnd: 'Night Stop End',
+    workWindow: 'Delivery Windows (apply only within, pause outside)',
+    morningStart: 'Morning Start',
+    morningEnd: 'Morning Stop',
+    afternoonStart: 'Afternoon Start',
+    afternoonEnd: 'Afternoon Stop',
     tagInputPlaceholder: 'Type and press Enter',
     degreeOptions: {
       '': 'No limit',

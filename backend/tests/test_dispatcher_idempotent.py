@@ -2,7 +2,7 @@
 
 适配 slim-v3 M3 契约：
   dispatch_one(application_id, driver, rules) — driver.tap_chat_and_capture 为设备动作；
-  夜停 is_night_stop(rules)；geetest 检测在 runner 层（不在本模块）；
+  工作时段 is_within_work_window(rules)；geetest 检测在 runner 层（不在本模块）；
   mark_dup 由 PENDING 直接置 DUP，不扣配额、不写 SENDING（A5）。
 """
 
@@ -141,8 +141,8 @@ def _patch_dispatcher(monkeypatch):
     mock_rl.check_and_consume_apply = AsyncMock(return_value=True)
     monkeypatch.setattr(disp, "rate_limiter", mock_rl)
 
-    # 夜停默认关（具体用例自行覆盖）
-    monkeypatch.setattr(disp, "is_night_stop", lambda rules: False)
+    # 默认在工作时段内（具体用例自行覆盖）
+    monkeypatch.setattr(disp, "is_within_work_window", lambda rules: True)
 
     return disp
 
@@ -225,10 +225,10 @@ class TestDispatcherIdempotent:
         assert app.sent_at is not None
 
     @pytest.mark.anyio
-    async def test_night_stop_skips(self, monkeypatch):
-        """夜停时段 dispatch_one 返回 SKIP（夜停读 rules，单一真值源）。"""
+    async def test_outside_work_window_skips(self, monkeypatch):
+        """非工作时段 dispatch_one 返回 SKIP（工作时段读 rules，单一真值源）。"""
         disp = _patch_dispatcher(monkeypatch)
-        monkeypatch.setattr(disp, "is_night_stop", lambda rules: True)
+        monkeypatch.setattr(disp, "is_within_work_window", lambda rules: False)
         claimed = _store.add(_App(ApplicationStatus.CLAIMED))
         driver = _mk_driver()
         result = await disp.dispatch_one(claimed.id, driver, RULES)
