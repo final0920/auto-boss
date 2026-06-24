@@ -7,32 +7,29 @@ import { InboxPanel } from '../components/InboxPanel'
 import type { HrMessage } from '../components/InboxPanel'
 import { apiGet, apiPost } from '../api'
 
-// 后端 /messages/inbox 返回的会话+最新消息结构
+// 后端 /messages/inbox 返回的会话结构（仅含有 HR 回复的）
 interface InboxThread {
-  application_id: string
-  job_id: string
+  application_id: number
+  company: string
+  title: string
+  hr_name: string
+  salary: string
   taken_over: boolean
-  last_message: {
-    id: string
-    application_id: string
-    role: string
-    text: string
-    ts: string
-  } | null
+  last_message: { id: number; text: string; ts: string; role: string } | null
 }
 
 // 将后端 InboxThread 转换为 InboxPanel 期望的 HrMessage 形状
 function threadToMessage(thread: InboxThread): HrMessage {
   return {
-    id: thread.last_message?.id ?? thread.application_id,
-    company: thread.job_id,
-    hrName: '',
+    id: String(thread.last_message?.id ?? thread.application_id),
+    company: thread.company,
+    title: thread.title,
+    hrName: thread.hr_name,
     content: thread.last_message?.text ?? '',
     receivedAt: thread.last_message?.ts ?? '',
-    // 未读判断：最新消息来自 hr 则视为未读
-    read: thread.last_message ? thread.last_message.role !== 'hr' : true,
+    read: false,  // 收件箱里都是有 HR 新回复待处理的
     takenOver: thread.taken_over,
-    applicationId: thread.application_id,
+    applicationId: String(thread.application_id),
   }
 }
 

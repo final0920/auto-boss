@@ -2,9 +2,17 @@ import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/utils'
 import { Badge, Button, Card, CardContent } from './ui'
 
+function fmtTime(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export interface HrMessage {
   id: string
   company: string
+  title: string
   hrName: string
   content: string
   receivedAt: string
@@ -75,10 +83,11 @@ export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps
                       <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
                     )}
                     <span className="font-serif font-semibold text-sm">{msg.company}</span>
-                    <span className="text-xs text-muted-foreground">{msg.hrName}</span>
+                    {msg.title && <span className="text-xs text-muted-foreground truncate">{msg.title}</span>}
+                    {msg.hrName && <span className="text-xs text-muted-foreground shrink-0">· {msg.hrName}</span>}
                   </div>
                   <p className="text-sm leading-relaxed">{msg.content}</p>
-                  <p className="text-xs text-muted-foreground">{msg.receivedAt}</p>
+                  <p className="text-xs text-muted-foreground">{fmtTime(msg.receivedAt)}</p>
                 </div>
 
                 {msg.takenOver ? (
