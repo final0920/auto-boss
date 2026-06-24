@@ -20,7 +20,6 @@ def _app_dict(a: Application, job: Optional[Job] = None) -> dict:
         "job_id": a.job_id,
         "status": a.status.value,
         "greeting": a.greeting,
-        "taken_over": a.taken_over,
         "fail_reason": a.fail_reason,
         "sent_at": a.sent_at.isoformat() if a.sent_at else None,
         "created_at": a.created_at.isoformat() if a.created_at else None,
@@ -129,19 +128,4 @@ async def confirm_sending(
     db.add(a)
     db.commit()
     db.refresh(a)
-    return _app_dict(a)
-
-
-@router.post("/{app_id}/takeover", dependencies=[Depends(require_auth)])
-async def takeover(app_id: int, db: Session = Depends(get_db)) -> dict:
-    """标记人工接管（inbox_watcher 发现 HR 回复后前端一键接管）。"""
-    a = db.get(Application, app_id)
-    if a is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
-    a.taken_over = True
-    a.updated_at = datetime.now()
-    db.add(a)
-    db.commit()
-    db.refresh(a)
-
     return _app_dict(a)

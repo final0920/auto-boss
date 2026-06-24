@@ -1,14 +1,10 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-
-export type DeviceMode = 'AUTO' | 'MANUAL' | 'PAUSED'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 
 export interface Device {
   id: string
   serial: string
   model: string
   status: 'online' | 'offline' | 'unauthorized'
-  mode: DeviceMode
-  backend: 'uia' | 'vision' | 'auto'
   todayApplied: number
   dailyQuota: number
 }
@@ -18,7 +14,6 @@ interface DeviceContextValue {
   activeDevice: Device | null
   setActiveDevice: (device: Device | null) => void
   setDevices: (devices: Device[]) => void
-  setDeviceMode: (deviceId: string, mode: DeviceMode) => void
 }
 
 const DeviceContext = createContext<DeviceContextValue | null>(null)
@@ -27,16 +22,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [devices, setDevices] = useState<Device[]>([])
   const [activeDevice, setActiveDevice] = useState<Device | null>(null)
 
-  const setDeviceMode = useCallback((deviceId: string, mode: DeviceMode) => {
-    setDevices(prev =>
-      prev.map(d => (d.id === deviceId ? { ...d, mode } : d)),
-    )
-    setActiveDevice(prev => (prev?.id === deviceId ? { ...prev, mode } : prev))
-  }, [])
-
   return (
     <DeviceContext.Provider
-      value={{ devices, activeDevice, setActiveDevice, setDevices, setDeviceMode }}
+      value={{ devices, activeDevice, setActiveDevice, setDevices }}
     >
       {children}
     </DeviceContext.Provider>

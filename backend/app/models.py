@@ -6,7 +6,7 @@ Application 状态机：PENDING -> CLAIMED -> SENDING -> SENT | FAILED
                     PENDING -> DUP（设备级"继续沟通"预检，不经 CLAIMED/SENDING）
   - dispatcher 只取 CLAIMED
   - SENDING 仅由启动自检转人工确认，永不自动重拾
-  - taken_over=True 表示人工接管（inbox_watcher 发现 HR 回复后置）
+  - taken_over=True（保留字段，Web 接管功能已移除）
 """
 from __future__ import annotations
 
@@ -100,7 +100,7 @@ class Application(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-    # --- 接管标志（inbox_watcher 置 True） ---
+    # --- 接管标志（保留字段，Web 接管功能已移除） ---
     taken_over: bool = False
 
     # --- 失败原因 ---

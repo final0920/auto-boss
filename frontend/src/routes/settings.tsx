@@ -4,11 +4,7 @@ import { useI18n, type Locale } from '../lib/i18n'
 import { Button, Card, CardHeader, CardTitle, CardContent, Input } from '../components/ui'
 import { apiGet, apiPut } from '../api'
 
-type BackendOverride = 'auto' | 'uia' | 'vision'
-
 interface SettingsState {
-  backendOverride: BackendOverride
-  backendLocked: boolean
   language: Locale
   theme: 'light' | 'dark'
   // 只读展示，Key 走 .env，不由前端存储
@@ -18,8 +14,6 @@ interface SettingsState {
 
 // 后端未连通时的合理默认值
 const FALLBACK: SettingsState = {
-  backendOverride: 'auto',
-  backendLocked: false,
   language: 'zh',
   theme: 'light',
   modelName: '—',
@@ -59,8 +53,6 @@ function SettingsPage() {
     setLocale(cfg.language)
     try {
       await apiPut('/config/settings', {
-        backendOverride: cfg.backendOverride,
-        backendLocked: cfg.backendLocked,
         language: cfg.language,
         theme: cfg.theme,
       })
@@ -106,42 +98,6 @@ function SettingsPage() {
           <p className="text-xs text-muted-foreground bg-muted/60 border border-border/60 rounded-xl px-3 py-2">
             {t.settings.apiKeyNote}
           </p>
-        </CardContent>
-      </Card>
-
-      {/* 后端覆盖 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t.settings.backendOverride}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            {(['auto', 'uia', 'vision'] as BackendOverride[]).map(opt => (
-              <Button
-                key={opt}
-                variant={cfg.backendOverride === opt ? 'default' : 'outline'}
-                size="sm"
-                disabled={loading}
-                onClick={() => update('backendOverride', opt)}
-              >
-                {opt === 'auto' ? '自动' : opt === 'uia' ? '控件树' : '视觉'}
-              </Button>
-            ))}
-          </div>
-          {cfg.backendOverride !== 'auto' && (
-            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                id="lock-backend"
-                checked={cfg.backendLocked}
-                disabled={loading}
-                onChange={e => update('backendLocked', e.target.checked)}
-                className="rounded accent-primary"
-              />
-              锁定（禁止自动切换）
-            </label>
-          )}
-          <p className="text-xs text-muted-foreground">{t.settings.backendOverrideNote}</p>
         </CardContent>
       </Card>
 

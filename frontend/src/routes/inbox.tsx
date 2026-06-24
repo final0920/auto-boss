@@ -1,11 +1,10 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useI18n } from '../lib/i18n'
-import { useDevice } from '../lib/device-context'
 import { Badge, Card, CardContent } from '../components/ui'
 import { InboxPanel } from '../components/InboxPanel'
 import type { HrMessage } from '../components/InboxPanel'
-import { apiGet, apiPost } from '../api'
+import { apiGet } from '../api'
 
 // 后端 /messages/inbox 返回的会话结构（仅含有 HR 回复的）
 interface InboxThread {
@@ -14,7 +13,6 @@ interface InboxThread {
   title: string
   hr_name: string
   salary: string
-  taken_over: boolean
   last_message: { id: number; text: string; ts: string; role: string } | null
 }
 
@@ -28,15 +26,12 @@ function threadToMessage(thread: InboxThread): HrMessage {
     content: thread.last_message?.text ?? '',
     receivedAt: thread.last_message?.ts ?? '',
     read: false,  // 收件箱里都是有 HR 新回复待处理的
-    takenOver: thread.taken_over,
     applicationId: String(thread.application_id),
   }
 }
 
 function InboxPage() {
   const { t } = useI18n()
-  const navigate = useNavigate()
-  const { activeDevice, setDeviceMode } = useDevice()
   const [messages, setMessages] = useState<HrMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,31 +68,9 @@ function InboxPage() {
 
   const unreadCount = messages.filter(m => !m.read).length
 
-  // 接管对话：切换设备为手动模式，跳转镜像页
-  const handleTakeover = async (msg: HrMessage) => {
-    setMessages(prev =>
-      prev.map(m => m.applicationId === msg.applicationId ? { ...m, takenOver: true, read: true } : m),
-    )
-    if (activeDevice) {
-      setDeviceMode(activeDevice.id, 'MANUAL')
-    }
-    try {
-      await apiPost(`/applications/${msg.applicationId}/takeover`)
-    } catch {
-      // 非致命错误：接管请求失败时仍允许用户进入手动模式
-    }
-    navigate({ to: '/screen' })
-  }
-
-  // 标记已读：id 用 last_message.id（即 HrMessage.id）
-  const markRead = async (id: string) => {
+  // 标记已读：纯前端本地置 read
+  const markRead = (id: string) => {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m))
-    try {
-      // 路径改为 /messages/{id}/read
-      await apiPost(`/messages/${id}/read`)
-    } catch {
-      // 非致命：已读状态只影响 badge 计数
-    }
   }
 
   return (
@@ -139,7 +112,6 @@ function InboxPage() {
         <InboxPanel
           messages={messages}
           onMarkRead={markRead}
-          onTakeover={handleTakeover}
         />
       )}
     </div>

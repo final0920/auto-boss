@@ -51,7 +51,7 @@ async def inbox(db: Session = Depends(get_db)) -> list[dict]:
     result: list[dict] = []
     for app_id in hr_app_ids:
         app = db.get(Application, app_id)
-        if app is None or app.taken_over:
+        if app is None:
             continue
         job = db.get(Job, app.job_id)
         last = db.exec(
@@ -66,7 +66,6 @@ async def inbox(db: Session = Depends(get_db)) -> list[dict]:
             "title": job.title if job else "",
             "hr_name": job.hr_name if job else "",
             "salary": job.salary if job else "",
-            "taken_over": app.taken_over,
             "last_message": _msg_dict(last) if last else None,
         })
     result.sort(
@@ -75,11 +74,6 @@ async def inbox(db: Session = Depends(get_db)) -> list[dict]:
     )
     return result
 
-
-@router.post("/{msg_id}/read", dependencies=[Depends(require_auth)])
-async def mark_read(msg_id: int) -> dict:
-    """标记消息已读（stub）。TODO 真机阶段：Message.read 字段持久化。"""
-    return {"id": msg_id, "read": True}
 
 
 @router.get("/{msg_id}", dependencies=[Depends(require_auth)])

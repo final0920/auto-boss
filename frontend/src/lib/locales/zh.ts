@@ -16,16 +16,6 @@ export const zh = {
       offline: '离线',
       unauthorized: '未授权',
     },
-    mode: {
-      AUTO: '自动',
-      MANUAL: '手动',
-      PAUSED: '暂停',
-    },
-    backend: {
-      uia: '控件树',
-      vision: '视觉',
-      auto: '自动',
-    },
     todayApplied: '今日投递',
     dailyQuota: '每日配额',
   },
@@ -36,8 +26,6 @@ export const zh = {
   inbox: {
     title: 'HR 收件箱',
     unread: '未读',
-    takeover: '一键接管',
-    takeoverDesc: '切换手动模式并跳转投屏',
   },
   rules: {
     title: '筛选规则',
@@ -95,8 +83,6 @@ export const zh = {
     title: '设置',
     modelConfig: '模型配置',
     apiKeyNote: 'API Key 在后端 .env 文件中配置，不在前端存储',
-    backendOverride: '后端主次手动覆盖',
-    backendOverrideNote: '手动覆盖优先于自动判据，解除前不再自动切换',
     language: '语言',
     theme: '主题',
     save: '保存',

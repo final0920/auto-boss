@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { useDevice } from '../lib/device-context'
 import { useI18n } from '../lib/i18n'
-import type { Device, DeviceMode } from '../lib/device-context'
+import type { Device } from '../lib/device-context'
 import { Badge, Button, Card, CardHeader, CardTitle, CardContent } from '../components/ui'
 import { cn } from '../lib/utils'
 import { apiGet, getPipelineStatus, startPipeline, stopPipeline } from '../api'
@@ -23,8 +23,6 @@ function toDevice(r: RawDevice, applied: number, limit: number): Device {
     serial: r.serial,
     model: r.model || r.serial,
     status: r.online ? 'online' : r.state === 'unauthorized' ? 'unauthorized' : 'offline',
-    mode: 'AUTO' as DeviceMode,
-    backend: 'auto',
     todayApplied: applied,
     dailyQuota: limit,
   }

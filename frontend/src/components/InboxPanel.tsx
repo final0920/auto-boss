@@ -1,6 +1,6 @@
 import { useI18n } from '../lib/i18n'
 import { cn } from '../lib/utils'
-import { Badge, Button, Card, CardContent } from './ui'
+import { Badge, Card, CardContent } from './ui'
 
 function fmtTime(iso: string): string {
   if (!iso) return ''
@@ -17,38 +17,15 @@ export interface HrMessage {
   content: string
   receivedAt: string
   read: boolean
-  takenOver: boolean
   applicationId: string
-}
-
-interface TakeoverButtonProps {
-  onTakeover: () => void
-  disabled?: boolean
-}
-
-export function TakeoverButton({ onTakeover, disabled }: TakeoverButtonProps) {
-  const { t } = useI18n()
-  return (
-    <Button
-      variant={disabled ? 'outline' : 'default'}
-      size="sm"
-      disabled={disabled}
-      onClick={onTakeover}
-      title={t.inbox.takeoverDesc}
-      className="shrink-0 h-8 px-3 text-xs"
-    >
-      {t.inbox.takeover}
-    </Button>
-  )
 }
 
 interface InboxPanelProps {
   messages: HrMessage[]
   onMarkRead: (id: string) => void
-  onTakeover: (msg: HrMessage) => void
 }
 
-export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps) {
+export function InboxPanel({ messages, onMarkRead }: InboxPanelProps) {
   const { t } = useI18n()
   const unreadCount = messages.filter(m => !m.read).length
 
@@ -72,7 +49,6 @@ export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps
             className={cn(
               'cursor-pointer',
               !msg.read && 'border-primary/50 bg-primary/5',
-              msg.takenOver && 'opacity-60',
             )}
           >
             <CardContent className="p-4">
@@ -89,14 +65,6 @@ export function InboxPanel({ messages, onMarkRead, onTakeover }: InboxPanelProps
                   <p className="text-sm leading-relaxed">{msg.content}</p>
                   <p className="text-xs text-muted-foreground">{fmtTime(msg.receivedAt)}</p>
                 </div>
-
-                {msg.takenOver ? (
-                  <span className="text-xs text-muted-foreground shrink-0">已接管</span>
-                ) : (
-                  <div onClick={e => e.stopPropagation()}>
-                    <TakeoverButton onTakeover={() => onTakeover(msg)} />
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

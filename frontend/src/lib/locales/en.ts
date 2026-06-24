@@ -18,16 +18,6 @@ export const en: I18nKeys = {
       offline: 'Offline',
       unauthorized: 'Unauthorized',
     },
-    mode: {
-      AUTO: 'Auto',
-      MANUAL: 'Manual',
-      PAUSED: 'Paused',
-    },
-    backend: {
-      uia: 'UIAutomator',
-      vision: 'Vision',
-      auto: 'Auto',
-    },
     todayApplied: 'Today Applied',
     dailyQuota: 'Daily Quota',
   },
@@ -38,8 +28,6 @@ export const en: I18nKeys = {
   inbox: {
     title: 'HR Inbox',
     unread: 'Unread',
-    takeover: 'Take Over',
-    takeoverDesc: 'Switch to manual mode and jump to screen',
   },
   rules: {
     title: 'Filter Rules',
@@ -97,8 +85,6 @@ export const en: I18nKeys = {
     title: 'Settings',
     modelConfig: 'Model Config',
     apiKeyNote: 'API Key is configured in backend .env, not stored in frontend',
-    backendOverride: 'Backend Manual Override',
-    backendOverrideNote: 'Manual override takes priority over auto-switching until released',
     language: 'Language',
     theme: 'Theme',
     save: 'Save',
