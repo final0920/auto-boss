@@ -24,8 +24,12 @@ api.defaults.headers = api.defaults.headers ?? {}
 
 // Interceptor-style wrapper: use typed helper functions instead of raw api
 export async function apiGet<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+  // 过滤 undefined/null —— redaxios 会把它们序列化成字面量 "undefined" 混入 query string
+  const clean = params
+    ? Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== null))
+    : undefined
   const res = await api.get<T>(path, {
-    params,
+    params: clean,
     headers: { Authorization: `Bearer ${_token}` },
   })
   return res.data
