@@ -132,7 +132,6 @@ export interface ApplicationRecord {
   job_id: number
   status: 'PENDING' | 'CLAIMED' | 'SENDING' | 'SENT' | 'FAILED' | 'DUP'
   greeting: string
-  taken_over: boolean
   fail_reason: string
   sent_at: string | null
   created_at: string | null
@@ -140,8 +139,19 @@ export interface ApplicationRecord {
   job?: JobInfo
 }
 
-export const getApplications = (status?: string) =>
-  apiGet<ApplicationRecord[]>('/applications', status ? { status } : undefined)
+export interface ApplicationsPage {
+  items: ApplicationRecord[]
+  total: number
+  skip: number
+  limit: number
+}
+
+export const getApplications = (params?: { status?: string; keyword?: string; skip?: number; limit?: number }) =>
+  apiGet<ApplicationsPage>('/applications', params)
+export const getApplicationStats = (keyword?: string) =>
+  apiGet<Record<string, number>>('/applications/stats', keyword ? { keyword } : undefined)
+export const getSending = () =>
+  apiGet<ApplicationRecord[]>('/applications/sending')
 export const confirmApplication = (id: number, sent: boolean) =>
   apiPost(`/applications/${id}/confirm`, { sent })
 export const clearHistory = () =>
